@@ -1,0 +1,18 @@
+services:
+  ros2_workspace:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: hawkeye-ros:latest
+    container_name: hawkeye-ros
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./src:/ros2_ws/src
+    working_dir: /ros2_ws
+    command: /bin/bash -c "colcon build && source install/setup.bash && /bin/bash"
+    network_mode: host
+    environment:
+      - DISPLAY=${DISPLAY}
+      - ROS_DOMAIN_ID=0
+    ipc: host
