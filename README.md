@@ -1,10 +1,7 @@
 # Hawkeye-OS
 
 ## Repository Structure 
-```
-```
-```
-```
+```bash 
 ros2_pubsub/
 ├── Dockerfile
 ├── README.md
@@ -26,9 +23,6 @@ ros2_pubsub/
         └── src/
             ├── publisher.cpp
             └── subscriber.cpp
-```
-```
-```
 ```
 
 ## Getting Started 
