@@ -57,4 +57,17 @@ source install/setup.bash
 ros2 run py_pubsub subscriber ("on one terminal")
 ros2 run cpp_pubsub publisher ("on the other terminal")
 ```
+
+
+# Orchestrator 
+
+Inside the terminal, after the workspace is built, run the orchestrator
+```bash 
+ros2 run orchestrator orchestrator
+```
+
+For testing, mock queues are available
+```bash
+ros2 run orchestrator mock_image_capture ("on one terminal")
+ros2 run orchestrator mock_object_detection ("on another terminal")
 ```
