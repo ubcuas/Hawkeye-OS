@@ -51,14 +51,6 @@ Inside the terminal, build the workplace
 colcon build
 ```
 
-Have two terminals (if you want to test out pub/sub), and on each terminal run one publisher and one subscriber
-```bash
-source install/setup.bash 
-ros2 run py_pubsub subscriber ("on one terminal")
-ros2 run cpp_pubsub publisher ("on the other terminal")
-```
-
-
 # Orchestrator 
 
 Inside the terminal, after the workspace is built, run the orchestrator
@@ -71,3 +63,6 @@ For testing, mock queues are available
 ros2 run orchestrator mock_image_capture ("on one terminal")
 ros2 run orchestrator mock_object_detection ("on another terminal")
 ```
+
+# Others 
+There are sample files called `py_pubsub, cpp_pubsub` which show basics of ROS. They'll be removed but feel free to browse for now.
