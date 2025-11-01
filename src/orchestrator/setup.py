@@ -11,11 +11,13 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
     ],
-    install_requires=['setuptools'],
+    install_requires=[
+        'setuptools',
+        'websockets>=10.0',  # Added for GCOM communication
+    ],
     zip_safe=True,
-    maintainer='Your Name',
-    maintainer_email='your_email@example.com',
-    description='Orchestrator node for async message handling',
+    maintainer='UAS',
+    description='Orchestrator node for async message handling with GCOM WebSocket support',
     license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={

@@ -15,4 +15,9 @@ services:
     environment:
       - DISPLAY=${DISPLAY}
       - ROS_DOMAIN_ID=0
+      
+      # Orchestrator Env Variables
+      - GCOM_WEBSOCKET_URL=ws://localhost:8765
+      - OBJECT_DETECTION_TOPIC=object_detection
+      - IMAGE_CAPTURE_TOPIC=image_capture
     ipc: host
