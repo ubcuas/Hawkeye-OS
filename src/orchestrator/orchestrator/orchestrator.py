@@ -97,8 +97,8 @@ class Orchestrator(Node):
         # Load from environment variables 
         self.object_detection_topic = object_detection_topic or os.getenv('OBJECT_DETECTION_TOPIC')
         self.image_request_topic = image_request_topic or os.getenv('IMAGE_REQUEST_TOPIC')
-        self.gcom_websocket_url = gcom_websocket_url or os.getenv('GCOM_WEBSOCKET_URL')
-        self.webrtc_signaling_url = webrtc_signaling_url or os.getenv('WEBRTC_SIGNALING_URL')
+        self.gcom_websocket_url = gcom_websocket_url or os.getenv('GCOM_WEBSOCKET_URL', 'ws://localhost:8765')
+        self.webrtc_signaling_url = webrtc_signaling_url or os.getenv('WEBRTC_SIGNALING_URL', 'ws://localhost:8766')
 
         # Async queues
         self.image_queue = asyncio.Queue()  # Images from object detection (object detection -> orchestrator)
@@ -135,7 +135,10 @@ class Orchestrator(Node):
         """Manage WebSocket connection for commands and single images"""
         while rclpy.ok():
             try:
-                async with websockets.connect(self.gcom_websocket_url) as websocket:
+                async with websockets.connect(
+                    self.gcom_websocket_url,
+                    max_size=20 * 1024 * 1024  # 20MB for large images
+                ) as websocket:
                     self.websocket = websocket
                     self.get_logger().info('Connected to GCOM WebSocket')
                     
@@ -208,37 +211,66 @@ class Orchestrator(Node):
         if msg_type == 'offer':
             self.get_logger().info('Received WebRTC offer')
             
-            # Create peer connection
-            self.pc = RTCPeerConnection()
-            
-            # Create video track
-            self.video_track = ImageStreamTrack()
-            self.pc.addTrack(self.video_track)
-            
-            # Set remote description (offer)
-            await self.pc.setRemoteDescription(
-                RTCSessionDescription(sdp=data['sdp'], type=data['type'])
-            )
-            
-            # Create answer
-            answer = await self.pc.createAnswer()
-            await self.pc.setLocalDescription(answer)
-            
-            # Send answer back
-            if self.signaling_ws:
-                await self.signaling_ws.send(json.dumps({
-                    'type': 'answer',
-                    'sdp': self.pc.localDescription.sdp
-                }))
-                self.get_logger().info('Sent WebRTC answer')
+            try:
+                # ALWAYS close and recreate peer connection for each offer
+                if self.pc:
+                    await self.pc.close()
+                    self.get_logger().info('Closed old peer connection')
                 
+                # Create NEW peer connection
+                self.pc = RTCPeerConnection()
+                self.get_logger().info('Created RTCPeerConnection')
+                
+                # Set remote description
+                self.get_logger().info('Setting remote description...')
+                offer = RTCSessionDescription(sdp=data['sdp'], type='offer')
+                await self.pc.setRemoteDescription(offer)
+                self.get_logger().info('Remote description set')
+                
+                # Create video track
+                self.get_logger().info('Creating video track...')
+                self.video_track = ImageStreamTrack()
+                
+                # Add track to peer connection
+                self.get_logger().info('Adding video track...')
+                self.pc.addTrack(self.video_track)
+                self.get_logger().info('Video track added')
+                
+                # Fix transceiver directions before creating answer
+                for transceiver in self.pc.getTransceivers():
+                    if transceiver.sender.track == self.video_track:
+                        transceiver._direction = 'sendonly'
+                        transceiver._offerDirection = 'recvonly'
+                        self.get_logger().info(f'Fixed transceiver direction: {transceiver._direction}')
+                
+                # Create answer
+                self.get_logger().info('Creating answer...')
+                answer = await self.pc.createAnswer()
+                await self.pc.setLocalDescription(answer)
+                self.get_logger().info('Answer created and set')
+                
+                # Send answer back
+                if self.signaling_ws:
+                    await self.signaling_ws.send(json.dumps({
+                        'type': 'answer',
+                        'sdp': self.pc.localDescription.sdp
+                    }))
+                    self.get_logger().info('Sent WebRTC answer')
+                else:
+                    self.get_logger().error('No signaling websocket available')
+                    
+            except Exception as e:
+                self.get_logger().error(f'Error in WebRTC signaling: {e}')
+                import traceback
+                self.get_logger().error(traceback.format_exc())
+                    
         elif msg_type == 'ice':
-            """ 
-            TODO: handle ICE later when actually accessing endpoint (not localhost) 
-            
-            https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API/Protocols - ICE needed when p2p connection not immediately possible
-            """
+            # TODO: handle ICE candidates
             pass
+        else:
+            self.get_logger().warn(f'Unknown signaling message type: {msg_type}')
+        
+    
 
     async def handle_gcom_command(self, data):
         """

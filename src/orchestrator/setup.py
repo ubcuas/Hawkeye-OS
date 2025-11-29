@@ -28,8 +28,6 @@ setup(
         'console_scripts': [
             'orchestrator = orchestrator.orchestrator:main',
             'mock_object_detection = orchestrator.mock_object_detection:main',
-            'mock_camera = orchestrator.mock_camera:main',
-            'image_capture = orchestrator.image_capture:main',
         ],
     },
 )

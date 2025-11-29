@@ -20,9 +20,8 @@ services:
       - ROS_DOMAIN_ID=0
 
       # Orchestrator configuration
-      # TODO: REPLACE WITH REAL URL
-      - GCOM_WEBSOCKET_URL=REPLACE_URL
-      - WEBRTC_SIGNALING_URL=REPLACE_URL
+      - GCOM_WEBSOCKET_URL=ws://host.docker.internal:8765
+      - WEBRTC_SIGNALING_URL=ws://host.docker.internal:8766
       # Topics
       - OBJECT_DETECTION_TOPIC=object_detection/image
       - IMAGE_REQUEST_TOPIC=image_request
