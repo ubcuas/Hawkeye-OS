@@ -187,6 +187,8 @@ class Orchestrator(Node):
                 async with websockets.connect(self.webrtc_signaling_url) as ws:
                     self.signaling_ws = ws
                     self.get_logger().info('Connected to WebRTC signaling server')
+
+                    await self.send_webrtc_offer()
                     
                     async for message in ws:
                         try:
@@ -205,72 +207,51 @@ class Orchestrator(Node):
                 await asyncio.sleep(5)
 
     async def handle_signaling(self, data):
-        """Handle WebRTC signaling messages (SDP offer/answer)"""
-        msg_type = data.get('type') 
+        """Handle WebRTC signaling messages (SDP answer from GCOM)"""
+        msg_type = data.get('type')
         
-        if msg_type == 'offer':
-            self.get_logger().info('Received WebRTC offer')
+        if msg_type == 'answer':
+            self.get_logger().info('Received WebRTC answer')
             
             try:
-                # ALWAYS close and recreate peer connection for each offer
-                if self.pc:
-                    await self.pc.close()
-                    self.get_logger().info('Closed old peer connection')
-                
-                # Create NEW peer connection
-                self.pc = RTCPeerConnection()
-                self.get_logger().info('Created RTCPeerConnection')
-                
                 # Set remote description
-                self.get_logger().info('Setting remote description...')
-                offer = RTCSessionDescription(sdp=data['sdp'], type='offer')
-                await self.pc.setRemoteDescription(offer)
-                self.get_logger().info('Remote description set')
+                answer = RTCSessionDescription(sdp=data['sdp'], type='answer')
+                await self.pc.setRemoteDescription(answer)
+                self.get_logger().info('WebRTC connection established!')
                 
-                # Create video track
-                self.get_logger().info('Creating video track...')
-                self.video_track = ImageStreamTrack()
-                
-                # Add track to peer connection
-                self.get_logger().info('Adding video track...')
-                self.pc.addTrack(self.video_track)
-                self.get_logger().info('Video track added')
-                
-                # Fix transceiver directions before creating answer
-                for transceiver in self.pc.getTransceivers():
-                    if transceiver.sender.track == self.video_track:
-                        transceiver._direction = 'sendonly'
-                        transceiver._offerDirection = 'recvonly'
-                        self.get_logger().info(f'Fixed transceiver direction: {transceiver._direction}')
-                
-                # Create answer
-                self.get_logger().info('Creating answer...')
-                answer = await self.pc.createAnswer()
-                await self.pc.setLocalDescription(answer)
-                self.get_logger().info('Answer created and set')
-                
-                # Send answer back
-                if self.signaling_ws:
-                    await self.signaling_ws.send(json.dumps({
-                        'type': 'answer',
-                        'sdp': self.pc.localDescription.sdp
-                    }))
-                    self.get_logger().info('Sent WebRTC answer')
-                else:
-                    self.get_logger().error('No signaling websocket available')
-                    
             except Exception as e:
-                self.get_logger().error(f'Error in WebRTC signaling: {e}')
-                import traceback
-                self.get_logger().error(traceback.format_exc())
-                    
-        elif msg_type == 'ice':
-            # TODO: handle ICE candidates
-            pass
-        else:
-            self.get_logger().warn(f'Unknown signaling message type: {msg_type}')
-        
-    
+                self.get_logger().error(f'Error processing answer: {e}')
+
+    async def send_webrtc_offer(self):
+        """Create and send WebRTC offer to GCOM"""
+        try:
+            # Create peer connection
+            self.pc = RTCPeerConnection()
+            self.get_logger().info('Created RTCPeerConnection')
+            
+            # Create video track
+            self.video_track = ImageStreamTrack()
+            
+            # Add video track
+            self.pc.addTransceiver(self.video_track, direction='sendonly')
+            self.get_logger().info('Added video track')
+            
+            # Create offer
+            offer = await self.pc.createOffer()
+            await self.pc.setLocalDescription(offer)
+            self.get_logger().info('Created offer')
+            
+            # Send offer
+            if self.signaling_ws:
+                await self.signaling_ws.send(json.dumps({
+                    'type': 'offer',
+                    'sdp': self.pc.localDescription.sdp
+                }))
+                self.get_logger().info('Sent WebRTC offer to GCOM')
+            
+        except Exception as e:
+            self.get_logger().error(f'Error creating offer: {e}')
+
 
     async def handle_gcom_command(self, data):
         """

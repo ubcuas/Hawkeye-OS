@@ -74,17 +74,17 @@ class MockGCOM:
         print(f"[SIG] Orchestrator connected: {client_id}")
         
         try:
-            # Send offer to orchestrator to start WebRTC
-            await self.send_webrtc_offer(websocket)
+            print(f"[SIG] Waiting for offer from orchestrator...")
+
             
             # Wait for answer
             async for message in websocket:
                 try:
                     data = json.loads(message)
                     
-                    if data.get('type') == 'answer':
-                        print(f"[SIG] Received answer from orchestrator")
-                        await self.handle_webrtc_answer(data)
+                    if data.get('type') == 'offer':
+                        print(f"[SIG] Received offer from orchestrator")
+                        await self.handle_webrtc_offer(websocket, data)
                         
                 except json.JSONDecodeError:
                     print(f"[SIG] Invalid JSON")
@@ -94,63 +94,46 @@ class MockGCOM:
         finally:
             self.signaling_clients.remove(websocket)
 
-    async def send_webrtc_offer(self, websocket):
-        """Create and send WebRTC offer"""
+    async def handle_webrtc_offer(self, websocket, data):
+        """Handle WebRTC offer from orchestrator and send answer"""
         print("[SIG] Creating WebRTC peer connection")
         self.pc = RTCPeerConnection()
+        
+        # Add connection state handlers
+        @self.pc.on("connectionstatechange")
+        async def on_connectionstatechange():
+            print(f"[RTC] *** Connection state: {self.pc.connectionState} ***")
+        
+        @self.pc.on("iceconnectionstatechange")
+        async def on_iceconnectionstatechange():
+            print(f"[RTC] *** ICE connection state: {self.pc.iceConnectionState} ***")
         
         # Set up to receive video
         @self.pc.on("track")
         async def on_track(track):
-            print(f"[RTC] Receiving {track.kind} track")
+            print(f"[RTC] ✓✓✓ TRACK RECEIVED: {track.kind} track ✓✓✓")
             
             if track.kind == "video":
+                print(f"[RTC] Starting video frame receiver...")
                 asyncio.create_task(self.receive_video_frames(track))
         
-        # Create offer
-        offer = await self.pc.createOffer()
-        await self.pc.setLocalDescription(offer)
+        # Set remote description (the offer)
+        await self.pc.setRemoteDescription(
+            RTCSessionDescription(sdp=data['sdp'], type='offer')
+        )
+        print("[RTC] Remote description set")
         
-        # Send offer
+        # Create answer
+        answer = await self.pc.createAnswer()
+        await self.pc.setLocalDescription(answer)
+        
+        # Send answer back
         await websocket.send(json.dumps({
-            'type': 'offer',
+            'type': 'answer',
             'sdp': self.pc.localDescription.sdp
         }))
-        print("[SIG] Sent WebRTC offer")
-
-    async def handle_webrtc_answer(self, data):
-        """Handle WebRTC answer from orchestrator"""
-        await self.pc.setRemoteDescription(
-            RTCSessionDescription(sdp=data['sdp'], type='answer')
-        )
-        print("[RTC] WebRTC connection established")
-        print("[RTC] Starting to receive video stream...")
-
-    async def receive_video_frames(self, track):
-        """Receive and process video frames from WebRTC stream"""
-        print("[RTC] Video stream active!")
-        
-        try:
-            while True:
-                frame = await track.recv()
-                self.frame_count += 1
-                
-                # Convert to numpy array
-                img = frame.to_ndarray(format="bgr24")
-                
-                # Display frame info every 30 frames (once per second at 30 FPS)
-                if self.frame_count % 30 == 0:
-                    print(f"[RTC] Received frame #{self.frame_count}: {img.shape[1]}x{img.shape[0]}")
-                
-                # Save every 30th frame as image
-                if self.frame_count % 30 == 0:
-                    filename = f"stream_frame_{self.frame_count:06d}.jpg"
-                    filepath = self.stream_dir / filename
-                    cv2.imwrite(str(filepath), img)
-                    print(f"[RTC] Saved frame: {filepath}")
-                    
-        except Exception as e:
-            print(f"[RTC] Stream ended: {e}")
+        print("[RTC] Sent WebRTC answer")
+        print("[RTC] Waiting for connection to establish...")
 
     # ===== Command Sender =====
     
