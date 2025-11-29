@@ -13,10 +13,14 @@ setup(
     ],
     install_requires=[
         'setuptools',
-        'websockets>=10.0',  # Added for GCOM communication
+        'websockets>=10.0',  # For GCOM communication
+        'opencv-python',  # For reading test images
+        'aiortc',  # For WebRTC streaming
+        'av',  # For video frames (required by aiortc)
     ],
     zip_safe=True,
-    maintainer='UAS',
+    maintainer='Your Name',
+    maintainer_email='your_email@example.com',
     description='Orchestrator node for async message handling with GCOM WebSocket support',
     license='Apache-2.0',
     tests_require=['pytest'],
@@ -24,7 +28,8 @@ setup(
         'console_scripts': [
             'orchestrator = orchestrator.orchestrator:main',
             'mock_object_detection = orchestrator.mock_object_detection:main',
-            'mock_image_capture = orchestrator.mock_image_capture:main',
+            'mock_camera = orchestrator.mock_camera:main',
+            'image_capture = orchestrator.image_capture:main',
         ],
     },
 )

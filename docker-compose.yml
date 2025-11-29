@@ -9,15 +9,19 @@ services:
     tty: true
     volumes:
       - ./src:/ros2_ws/src
+      - ./test_images:/ros2_ws/test_images
     working_dir: /ros2_ws
     command: /bin/bash -c "colcon build && source install/setup.bash && /bin/bash"
     network_mode: host
     environment:
       - DISPLAY=${DISPLAY}
       - ROS_DOMAIN_ID=0
-      
-      # Orchestrator Env Variables
-      - GCOM_WEBSOCKET_URL=ws://localhost:8765
-      - OBJECT_DETECTION_TOPIC=object_detection
-      - IMAGE_CAPTURE_TOPIC=image_capture
+
+      # Orchestrator configuration
+      # TODO: REPLACE WITH REAL URL
+      - GCOM_WEBSOCKET_URL=REPLACE_URL
+      - WEBRTC_SIGNALING_URL=REPLACE_URL
+      # Topics
+      - OBJECT_DETECTION_TOPIC=object_detection/image
+      - IMAGE_REQUEST_TOPIC=image_request
     ipc: host
