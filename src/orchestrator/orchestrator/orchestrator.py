@@ -130,6 +130,8 @@ class Orchestrator(Node):
             self.image_queue.put(msg),
             self.loop
         )
+        self.get_logger().info(f'IMAGE CALLBACK: Added to queue')  
+
 
     async def websocket_handler(self):
         """Manage WebSocket connection for commands and single images"""
@@ -218,6 +220,9 @@ class Orchestrator(Node):
                 answer = RTCSessionDescription(sdp=data['sdp'], type='answer')
                 await self.pc.setRemoteDescription(answer)
                 self.get_logger().info('WebRTC connection established!')
+
+                self.streaming = True  
+                self.get_logger().info('Auto-started streaming')
                 
             except Exception as e:
                 self.get_logger().error(f'Error processing answer: {e}')
@@ -228,6 +233,14 @@ class Orchestrator(Node):
             # Create peer connection
             self.pc = RTCPeerConnection()
             self.get_logger().info('Created RTCPeerConnection')
+
+            @self.pc.on("connectionstatechange")
+            async def on_connectionstatechange():
+                self.get_logger().info(f'Connection state: {self.pc.connectionState}')
+
+            @self.pc.on("iceconnectionstatechange") 
+            async def on_iceconnectionstatechange():
+                self.get_logger().info(f'ICE state: {self.pc.iceConnectionState}')
             
             # Create video track
             self.video_track = ImageStreamTrack()
@@ -265,7 +278,6 @@ class Orchestrator(Node):
         command = data.get('command')
         
         if command == 'start_stream':
-            self.streaming = True
             self.get_logger().info('Started WebRTC streaming mode')
             
             await self.gcom_outgoing_queue.put({
@@ -309,8 +321,10 @@ class Orchestrator(Node):
     async def process_images(self):
         """Route images to WebRTC stream or WebSocket based on mode"""
         while rclpy.ok():
+            self.get_logger().info('PROCESS: Waiting for image from queue...')
             img_msg = await self.image_queue.get()
-            
+            self.get_logger().info(f'PROCESS: Got image, streaming={self.streaming}, has_track={self.video_track is not None}')  
+
             # Send to WebRTC stream
             if self.streaming and self.video_track:
                 try:

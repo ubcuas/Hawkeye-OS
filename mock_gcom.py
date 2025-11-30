@@ -111,11 +111,11 @@ class MockGCOM:
         # Set up to receive video
         @self.pc.on("track")
         async def on_track(track):
-            print(f"[RTC] ✓✓✓ TRACK RECEIVED: {track.kind} track ✓✓✓")
+            print(f"[RTC] !!! TRACK RECEIVED: {track.kind} track !!!")
             
             if track.kind == "video":
                 print(f"[RTC] Starting video frame receiver...")
-                asyncio.create_task(self.receive_video_frames(track))
+                asyncio.ensure_future(self.receive_video_frames(track))
         
         # Set remote description (the offer)
         await self.pc.setRemoteDescription(
@@ -134,6 +134,31 @@ class MockGCOM:
         }))
         print("[RTC] Sent WebRTC answer")
         print("[RTC] Waiting for connection to establish...")
+
+    async def receive_video_frames(self, track):
+        """Receive and process video frames from WebRTC stream"""
+        print("[RTC] !!! Video stream receiver started! !!!")
+        
+        try:
+            while True:
+                frame = await track.recv()
+                self.frame_count += 1
+                
+                # Convert to numpy array
+                img = frame.to_ndarray(format="bgr24")
+                
+                # Display frame info every 30 frames (once per second at 30 FPS)
+                if self.frame_count % 30 == 0:
+                    print(f"[RTC] Received frame #{self.frame_count}: {img.shape[1]}x{img.shape[0]}")
+                    
+                    # Save this frame
+                    filename = f"stream_frame_{self.frame_count:06d}.jpg"
+                    filepath = self.stream_dir / filename
+                    cv2.imwrite(str(filepath), img)
+                    print(f"[RTC] Saved: {filepath}")
+                    
+        except Exception as e:
+            print(f"[RTC] Stream ended: {e}")
 
     # ===== Command Sender =====
     
@@ -156,27 +181,27 @@ class MockGCOM:
         # Test 1: Start WebRTC stream
         print("[CMD] → Sending: start_stream")
         await self.broadcast_ws({'command': 'start_stream'})
-        print("[CMD] ✓ Stream should start now")
+        print("[CMD] ! Stream should start now")
         print("[CMD]   Watch for '[RTC] Received frame' messages...")
         await asyncio.sleep(10)
         
         # Test 2: Capture single image (during stream)
         print("\n[CMD] → Sending: capture_image")
         await self.broadcast_ws({'command': 'capture_image'})
-        print("[CMD] ✓ Single image requested")
+        print("[CMD] ! Single image requested")
         print("[CMD]   Stream continues in background...")
         await asyncio.sleep(3)
         
         # Test 3: Stop stream
         print("\n[CMD] → Sending: stop_stream")
         await self.broadcast_ws({'command': 'stop_stream'})
-        print("[CMD] ✓ Stream stopped")
+        print("[CMD] ! Stream stopped")
         await asyncio.sleep(2)
         
         # Test 4: Another single image (no stream)
         print("\n[CMD] → Sending: capture_image")
         await self.broadcast_ws({'command': 'capture_image'})
-        print("[CMD] ✓ Single image requested (no stream)")
+        print("[CMD] ! Single image requested (no stream)")
         
         print("\n" + "="*60)
         print("Test sequence complete!")
