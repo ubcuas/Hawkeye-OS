@@ -38,8 +38,6 @@ Run the container
 ```bash
 docker-compose up -d
 ```
-```
-```
 
 Get the bash (On each terminal to test)
 ```bash
