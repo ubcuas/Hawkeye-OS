@@ -1,0 +1,20 @@
+# Docker image tar files
+*.tar
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+
+# Build artifacts
+build/
+*.o
+*.a
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
