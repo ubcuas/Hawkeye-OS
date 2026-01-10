@@ -33,7 +33,7 @@ Flows:
     Streaming: 
         1. GCOM sends request via WebSocket --> orchestrator receives 
         2. Same flow 2-4 
-        3. Orchestrator sends to GCOM via WebRTC stream s
+        3. Orchestrator sends to GCOM via WebRTC stream 
 """
 
 class ImageStreamTrack(VideoStreamTrack):
@@ -274,6 +274,8 @@ class Orchestrator(Node):
         - start_stream: Start WebRTC video streaming
         - stop_stream: Stop WebRTC streaming
         - capture_image: Capture single image (via WebSocket)
+
+        NOTE: received header must have "command" field and the values should correspond with commands above
         """
         command = data.get('command')
         
