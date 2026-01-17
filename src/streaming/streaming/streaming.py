@@ -6,7 +6,7 @@ from rclpy.node import Node
 from rclpy.executors import SingleThreadedExecutor
 import socketio
 
-from streaming.streaming.constants import WEBRTC_SIGNALING_URL
+from streaming.constants import WEBRTC_SIGNALING_URL
 
 """
 Streaming Node
