@@ -2,7 +2,8 @@
 
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import CompressedImage
+from sensor_msgs.msg import CompressedImage, Imu
+from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import String
 
 
@@ -11,20 +12,31 @@ class ImageProcessor(Node):
     def __init__(self):
         super().__init__('image_processor')
         
+        # Subscribe to official RealSense compressed image topic
         self.image_subscription = self.create_subscription(
             CompressedImage,
-            '/camera/image_raw/compressed',
+            '/camera/camera/color/image_raw/compressed',
             self.image_callback,
             10
         )
         
-        self.telemetry_subscription = self.create_subscription(
-            String,
-            '/camera/telemetry',
-            self.telemetry_callback,
+        # Subscribe to official RealSense IMU topic
+        self.imu_subscription = self.create_subscription(
+            Imu,
+            '/camera/camera/imu',
+            self.imu_callback,
             10
         )
         
+        # Subscribe to external GPS topic (if available)
+        self.gps_subscription = self.create_subscription(
+            NavSatFix,
+            '/gps/fix',
+            self.gps_callback,
+            10
+        )
+        
+        # Publish detections
         self.detection_publisher = self.create_publisher(
             String,
             '/detections',
@@ -34,7 +46,10 @@ class ImageProcessor(Node):
     def image_callback(self, msg):
         pass
     
-    def telemetry_callback(self, msg):
+    def imu_callback(self, msg):
+        pass
+    
+    def gps_callback(self, msg):
         pass
 
 
