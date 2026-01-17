@@ -40,6 +40,12 @@ sio.attach(app)
 @sio.event
 async def connect(sid, environ):
     """Handle client connection"""
+    # Notify existing clients about the new connection
+    for client_id in connected_clients:
+        logger.info(f"Notifying {client_id} about new peer {sid}")
+        await sio.emit('peer-joined', {'peer_id': sid}, room=client_id)
+
+    # Add the new client to the set
     connected_clients.add(sid)
     logger.info(f"Client connected: {sid}")
     logger.info(f"Total connected clients: {len(connected_clients)}")
