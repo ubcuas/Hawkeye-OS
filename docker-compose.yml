@@ -1,4 +1,15 @@
 services:
+  webrtc_signaling:
+    build:
+      context: ./infrastructure/webrtc_signaling_server
+      dockerfile: Dockerfile
+    container_name: webrtc-signaling-server
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+
   ros2_workspace:
     platform: linux/arm64
     build:
@@ -22,11 +33,13 @@ services:
 
       # Orchestrator configuration
       - GCOM_WEBSOCKET_URL=ws://host.docker.internal:8765
-      - WEBRTC_SIGNALING_URL=ws://host.docker.internal:8766
+      - WEBRTC_SIGNALING_URL=ws://localhost:8080
       # Topics
       - OBJECT_DETECTION_TOPIC=object_detection/image
       - IMAGE_REQUEST_TOPIC=image_request
     ipc: host
+    depends_on:
+      - webrtc_signaling
 volumes:
     ros2_ws_build:
     ros2_ws_install:
