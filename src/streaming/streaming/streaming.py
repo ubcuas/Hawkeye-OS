@@ -6,6 +6,8 @@ from rclpy.node import Node
 from rclpy.executors import SingleThreadedExecutor
 import socketio
 
+from streaming.streaming.constants import WEBRTC_SIGNALING_URL
+
 """
 Streaming Node
 
@@ -19,16 +21,13 @@ class StreamingNode(Node):
         super().__init__("streaming")
 
         # Configuration
-        self.signaling_url = signaling_url or os.getenv(
-            'WEBRTC_SIGNALING_URL',
-            'ws://localhost:8080'
-        )
+        self.signaling_url = signaling_url
 
         # Connection state
         self.sio = socketio.AsyncClient(
             logger=False,
             engineio_logger=False,
-            reconnection=False  # We'll handle reconnection manually
+            reconnection=False,  # We'll handle reconnection manually
         )
         self.connected = False
         self.peer_id: Optional[str] = None
@@ -46,8 +45,8 @@ class StreamingNode(Node):
         # Register Socket.IO event handlers
         self._register_socketio_handlers()
 
-        self.get_logger().info('Streaming node initialized')
-        self.get_logger().info(f'Signaling server URL: {self.signaling_url}')
+        self.get_logger().info("Streaming node initialized")
+        self.get_logger().info(f"Signaling server URL: {self.signaling_url}")
 
     def _register_socketio_handlers(self):
         """Register Socket.IO event handlers"""
@@ -56,19 +55,19 @@ class StreamingNode(Node):
         async def connect():
             """Handle successful connection to signaling server"""
             self.connected = True
-            self.get_logger().info('Connected to signaling server')
+            self.get_logger().info("Connected to signaling server")
 
         @self.sio.event
         async def disconnect():
             """Handle disconnection from signaling server"""
             self.connected = False
-            self.get_logger().warn('Disconnected from signaling server')
+            self.get_logger().warn("Disconnected from signaling server")
 
         @self.sio.event
         async def peer_joined(data):
             """Handle notification of peer joining"""
-            peer_id = data.get('peer_id')
-            self.get_logger().info(f'Peer joined: {peer_id}')
+            peer_id = data.get("peer_id")
+            self.get_logger().info(f"Peer joined: {peer_id}")
             self.peer_id = peer_id
 
             # TODO: In next step, initiate WebRTC offer when peer joins
@@ -77,8 +76,8 @@ class StreamingNode(Node):
         @self.sio.event
         async def signal(data):
             """Handle incoming WebRTC signaling messages"""
-            message_type = data.get('type')
-            self.get_logger().info(f'Received signal: {message_type}')
+            message_type = data.get("type")
+            self.get_logger().info(f"Received signal: {message_type}")
 
             # TODO: In next step, handle SDP answer and ICE candidates
             # if message_type == 'answer':
@@ -89,7 +88,7 @@ class StreamingNode(Node):
         @self.sio.event
         async def error(data):
             """Handle error messages from signaling server"""
-            self.get_logger().error(f'Signaling server error: {data}')
+            self.get_logger().error(f"Signaling server error: {data}")
 
     async def connect_to_signaling_server(self):
         """
@@ -106,19 +105,16 @@ class StreamingNode(Node):
 
             try:
                 self.get_logger().info(
-                    f'Attempting to connect to signaling server '
-                    f'(attempt {attempt}): {self.signaling_url}'
+                    f"Attempting to connect to signaling server "
+                    f"(attempt {attempt}): {self.signaling_url}"
                 )
 
-                await self.sio.connect(
-                    self.signaling_url,
-                    transports=['websocket']
-                )
+                await self.sio.connect(self.signaling_url, transports=["websocket"])
 
                 # Connection successful
                 self.get_logger().info(
-                    f'Successfully connected to signaling server '
-                    f'after {attempt} attempt(s)'
+                    f"Successfully connected to signaling server "
+                    f"after {attempt} attempt(s)"
                 )
                 retry_delay = self.initial_retry_delay  # Reset retry delay
 
@@ -126,25 +122,20 @@ class StreamingNode(Node):
                 await self.sio.wait()
 
             except Exception as e:
-                self.get_logger().error(
-                    f'Failed to connect to signaling server: {e}'
-                )
-                self.get_logger().info(
-                    f'Retrying in {retry_delay:.1f} seconds...'
-                )
+                self.get_logger().error(f"Failed to connect to signaling server: {e}")
+                self.get_logger().info(f"Retrying in {retry_delay:.1f} seconds...")
 
                 # Wait before retrying
                 await asyncio.sleep(retry_delay)
 
                 # Exponential backoff
                 retry_delay = min(
-                    retry_delay * self.retry_backoff_factor,
-                    self.max_retry_delay
+                    retry_delay * self.retry_backoff_factor, self.max_retry_delay
                 )
 
     async def shutdown(self):
         """Clean shutdown of the node"""
-        self.get_logger().info('Shutting down streaming node...')
+        self.get_logger().info("Shutting down streaming node...")
 
         if self.sio.connected:
             await self.sio.disconnect()
@@ -158,7 +149,7 @@ async def async_main(args=None):
     """Main async entry point"""
     rclpy.init(args=args)
 
-    streaming_node = StreamingNode()
+    streaming_node = StreamingNode(WEBRTC_SIGNALING_URL)
 
     executor = SingleThreadedExecutor()
     executor.add_node(streaming_node)
@@ -171,10 +162,7 @@ async def async_main(args=None):
 
     try:
         # Run both the ROS spin loop and signaling server connection
-        await asyncio.gather(
-            spin(),
-            streaming_node.connect_to_signaling_server()
-        )
+        await asyncio.gather(spin(), streaming_node.connect_to_signaling_server())
     except KeyboardInterrupt:
         pass
     finally:
@@ -188,5 +176,5 @@ def main(args=None):
     asyncio.run(async_main(args))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
