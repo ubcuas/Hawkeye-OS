@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # Build natively for host architecture (auto-detected)
     image: hawkeye-ros:latest
     container_name: hawkeye-ros
     stdin_open: true
