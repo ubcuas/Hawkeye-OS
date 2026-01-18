@@ -202,8 +202,11 @@ class StreamingNode(Node):
             # Create peer connection
             self.peer_connection = RTCPeerConnection(configuration=self.rtc_configuration)
 
+            # Capture in local variable for type narrowing
+            pc = self.peer_connection
+
             # Set up ICE candidate handler
-            @self.peer_connection.on("icecandidate")
+            @pc.on("icecandidate")
             async def on_icecandidate(candidate):
                 if candidate:
                     self.get_logger().info(f"Sending ICE candidate: {candidate.candidate}")
@@ -218,29 +221,29 @@ class StreamingNode(Node):
                     })
 
             # Set up connection state change handler
-            @self.peer_connection.on("connectionstatechange")
+            @pc.on("connectionstatechange")
             async def on_connectionstatechange():
-                self.get_logger().info(f"Connection state: {self.peer_connection.connectionState}")
+                self.get_logger().info(f"Connection state: {pc.connectionState}")
 
             # Set up ICE connection state change handler
-            @self.peer_connection.on("iceconnectionstatechange")
+            @pc.on("iceconnectionstatechange")
             async def on_iceconnectionstatechange():
-                self.get_logger().info(f"ICE connection state: {self.peer_connection.iceConnectionState}")
+                self.get_logger().info(f"ICE connection state: {pc.iceConnectionState}")
 
             # Set up ICE gathering state change handler
-            @self.peer_connection.on("icegatheringstatechange")
+            @pc.on("icegatheringstatechange")
             async def on_icegatheringstatechange():
-                self.get_logger().info(f"ICE gathering state: {self.peer_connection.iceGatheringState}")
-                if self.peer_connection.iceGatheringState == "complete":
+                self.get_logger().info(f"ICE gathering state: {pc.iceGatheringState}")
+                if pc.iceGatheringState == "complete":
                     self.ice_gathering_complete = True
 
             # Create and add video track
             self.video_track = ROSVideoStreamTrack()
-            self.peer_connection.addTrack(self.video_track)
+            pc.addTrack(self.video_track)
             self.get_logger().info("Video track added to peer connection")
 
             # Create data channel
-            self.data_channel = self.peer_connection.createDataChannel("streaming")
+            self.data_channel = pc.createDataChannel("streaming")
             self.get_logger().info("Data channel created")
 
             @self.data_channel.on("open")
@@ -256,8 +259,8 @@ class StreamingNode(Node):
                 self.get_logger().info(f"Received message on data channel: {message}")
 
             # Create offer
-            offer = await self.peer_connection.createOffer()
-            await self.peer_connection.setLocalDescription(offer)
+            offer = await pc.createOffer()
+            await pc.setLocalDescription(offer)
 
             self.get_logger().info("Sending SDP offer to peer")
 
@@ -266,8 +269,8 @@ class StreamingNode(Node):
                 "to": self.peer_id,
                 "type": "offer",
                 "data": {
-                    "sdp": self.peer_connection.localDescription.sdp,
-                    "type": self.peer_connection.localDescription.type,
+                    "sdp": pc.localDescription.sdp,
+                    "type": pc.localDescription.type,
                 }
             })
 
@@ -330,10 +333,11 @@ class StreamingNode(Node):
             candidate = RTCIceCandidate(
                 candidate=candidate_data.get("candidate"),
                 sdpMid=candidate_data.get("sdpMid"),
-                sdpMLineIndex=candidate_data.get("sdpMLineIndex")
+                sdpMLineIndex=candidate_data.get("sdpMLineIndex"),
             )
 
-            await self.peer_connection.addIceCandidate(candidate)
+            if self.peer_connection:
+                await self.peer_connection.addIceCandidate(candidate)
             self.get_logger().info(f"Added ICE candidate: {candidate_data.get('candidate')[:50]}...")
 
         except Exception as e:
