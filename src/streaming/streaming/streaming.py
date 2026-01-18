@@ -7,6 +7,7 @@ from rclpy.node import Node
 from rclpy.executors import SingleThreadedExecutor
 import socketio
 from aiortc import RTCPeerConnection, RTCSessionDescription, RTCIceCandidate, RTCConfiguration, RTCIceServer
+from aiortc.sdp import candidate_from_sdp
 from aiortc.mediastreams import VideoStreamTrack
 from av import VideoFrame
 import numpy as np
@@ -330,11 +331,19 @@ class StreamingNode(Node):
                 self.get_logger().info("Received end-of-candidates signal")
                 return
 
-            candidate = RTCIceCandidate(
-                candidate=candidate_data.get("candidate"),
-                sdpMid=candidate_data.get("sdpMid"),
-                sdpMLineIndex=candidate_data.get("sdpMLineIndex"),
-            )
+            # Parse the candidate string
+            candidate_str = candidate_data.get("candidate")
+
+            # Remove "candidate:" prefix if present
+            if candidate_str.startswith("candidate:"):
+                candidate_str = candidate_str.split(":", 1)[1]
+
+            # Parse using aiortc's SDP parser
+            candidate = candidate_from_sdp(candidate_str)
+
+            # Set the media stream identification
+            candidate.sdpMid = candidate_data.get("sdpMid")
+            candidate.sdpMLineIndex = candidate_data.get("sdpMLineIndex")
 
             if self.peer_connection:
                 await self.peer_connection.addIceCandidate(candidate)
