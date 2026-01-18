@@ -6,6 +6,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.executors import SingleThreadedExecutor
 import socketio
+from aiortc import RTCPeerConnection, RTCSessionDescription, RTCIceCandidate, RTCConfiguration, RTCIceServer
 
 from streaming.constants import WEBRTC_SIGNALING_URL
 
@@ -38,10 +39,19 @@ class StreamingNode(Node):
         self.initial_retry_delay = 1.0  # Initial retry delay (seconds)
         self.retry_backoff_factor = 2.0  # Exponential backoff multiplier
 
-        # WebRTC state (to be implemented)
+        # WebRTC state
         self.peer_connection = None
         self.data_channel = None
         self.ice_candidate_queue = []  # Queue ICE candidates until ready
+        self.ice_gathering_complete = False
+
+        # WebRTC configuration with STUN servers
+        self.rtc_configuration = RTCConfiguration(
+            iceServers=[
+                RTCIceServer(urls=["stun:stun.l.google.com:19302"]),
+                RTCIceServer(urls=["stun:stun1.l.google.com:19302"]),
+            ]
+        )
 
         # Register Socket.IO event handlers
         self._register_socketio_handlers()
@@ -72,8 +82,8 @@ class StreamingNode(Node):
             print(f"Peer joined: {peer_id}")
             self.peer_id = peer_id
 
-            # TODO: In next step, initiate WebRTC offer when peer joins
-            # await self._send_webrtc_offer()
+            # Initiate WebRTC offer when peer joins
+            await self._send_webrtc_offer()
 
         @self.sio.event
         async def signal(data):
@@ -81,16 +91,156 @@ class StreamingNode(Node):
             message_type = data.get("type")
             self.get_logger().info(f"Received signal: {message_type}")
 
-            # TODO: In next step, handle SDP answer and ICE candidates
-            # if message_type == 'answer':
-            #     await self._handle_answer(data.get('data'))
-            # elif message_type == 'ice-candidate':
-            #     await self._handle_ice_candidate(data.get('data'))
+            if message_type == 'answer':
+                await self._handle_answer(data.get('data'))
+            elif message_type == 'ice-candidate':
+                await self._handle_ice_candidate(data.get('data'))
 
         @self.sio.event
         async def error(data):
             """Handle error messages from signaling server"""
             self.get_logger().error(f"Signaling server error: {data}")
+
+    async def _send_webrtc_offer(self):
+        """Create peer connection, generate SDP offer, and send to peer via signaling server"""
+        try:
+            self.get_logger().info("Creating WebRTC peer connection")
+
+            # Create peer connection
+            self.peer_connection = RTCPeerConnection(configuration=self.rtc_configuration)
+
+            # Set up ICE candidate handler
+            @self.peer_connection.on("icecandidate")
+            async def on_icecandidate(candidate):
+                if candidate:
+                    self.get_logger().info(f"Sending ICE candidate: {candidate.candidate}")
+                    await self.sio.emit("signal", {
+                        "to": self.peer_id,
+                        "type": "ice-candidate",
+                        "data": {
+                            "candidate": candidate.candidate,
+                            "sdpMid": candidate.sdpMid,
+                            "sdpMLineIndex": candidate.sdpMLineIndex,
+                        }
+                    })
+
+            # Set up connection state change handler
+            @self.peer_connection.on("connectionstatechange")
+            async def on_connectionstatechange():
+                self.get_logger().info(f"Connection state: {self.peer_connection.connectionState}")
+
+            # Set up ICE connection state change handler
+            @self.peer_connection.on("iceconnectionstatechange")
+            async def on_iceconnectionstatechange():
+                self.get_logger().info(f"ICE connection state: {self.peer_connection.iceConnectionState}")
+
+            # Set up ICE gathering state change handler
+            @self.peer_connection.on("icegatheringstatechange")
+            async def on_icegatheringstatechange():
+                self.get_logger().info(f"ICE gathering state: {self.peer_connection.iceGatheringState}")
+                if self.peer_connection.iceGatheringState == "complete":
+                    self.ice_gathering_complete = True
+
+            # Create data channel
+            self.data_channel = self.peer_connection.createDataChannel("streaming")
+            self.get_logger().info("Data channel created")
+
+            @self.data_channel.on("open")
+            def on_open():
+                self.get_logger().info("Data channel opened")
+
+            @self.data_channel.on("close")
+            def on_close():
+                self.get_logger().info("Data channel closed")
+
+            @self.data_channel.on("message")
+            def on_message(message):
+                self.get_logger().info(f"Received message on data channel: {message}")
+
+            # Create offer
+            offer = await self.peer_connection.createOffer()
+            await self.peer_connection.setLocalDescription(offer)
+
+            self.get_logger().info("Sending SDP offer to peer")
+
+            # Send offer to peer via signaling server
+            await self.sio.emit("signal", {
+                "to": self.peer_id,
+                "type": "offer",
+                "data": {
+                    "sdp": self.peer_connection.localDescription.sdp,
+                    "type": self.peer_connection.localDescription.type,
+                }
+            })
+
+        except Exception as e:
+            self.get_logger().error(f"Error creating WebRTC offer: {e}")
+            self.get_logger().error(traceback.format_exc())
+
+    async def _handle_answer(self, answer_data):
+        """Handle SDP answer from peer"""
+        try:
+            self.get_logger().info("Received SDP answer from peer")
+
+            if not self.peer_connection:
+                self.get_logger().error("Cannot handle answer: peer connection not initialized")
+                return
+
+            # Set remote description
+            answer = RTCSessionDescription(
+                sdp=answer_data.get("sdp"),
+                type=answer_data.get("type")
+            )
+            await self.peer_connection.setRemoteDescription(answer)
+
+            self.get_logger().info("Remote description set successfully")
+
+            # Process queued ICE candidates now that we have remote description
+            if self.ice_candidate_queue:
+                self.get_logger().info(f"Processing {len(self.ice_candidate_queue)} queued ICE candidates")
+                for candidate_data in self.ice_candidate_queue:
+                    await self._add_ice_candidate(candidate_data)
+                self.ice_candidate_queue.clear()
+
+        except Exception as e:
+            self.get_logger().error(f"Error handling answer: {e}")
+            self.get_logger().error(traceback.format_exc())
+
+    async def _handle_ice_candidate(self, candidate_data):
+        """Handle ICE candidate from peer"""
+        try:
+            # If we don't have remote description yet, queue the candidate
+            if not self.peer_connection or not self.peer_connection.remoteDescription:
+                self.get_logger().info("Queueing ICE candidate (no remote description yet)")
+                self.ice_candidate_queue.append(candidate_data)
+                return
+
+            # Otherwise, add it immediately
+            await self._add_ice_candidate(candidate_data)
+
+        except Exception as e:
+            self.get_logger().error(f"Error handling ICE candidate: {e}")
+            self.get_logger().error(traceback.format_exc())
+
+    async def _add_ice_candidate(self, candidate_data):
+        """Add an ICE candidate to the peer connection"""
+        try:
+            if not candidate_data.get("candidate"):
+                self.get_logger().info("Received end-of-candidates signal")
+                return
+
+            candidate = RTCIceCandidate(
+                candidate=candidate_data.get("candidate"),
+                sdpMid=candidate_data.get("sdpMid"),
+                sdpMLineIndex=candidate_data.get("sdpMLineIndex")
+            )
+
+            await self.peer_connection.addIceCandidate(candidate)
+            self.get_logger().info(f"Added ICE candidate: {candidate_data.get('candidate')[:50]}...")
+
+        except Exception as e:
+            self.get_logger().error(f"Error adding ICE candidate: {e}")
+            self.get_logger().error(traceback.format_exc())
 
     async def connect_to_signaling_server(self):
         """
@@ -155,9 +305,10 @@ class StreamingNode(Node):
         if self.sio.connected:
             await self.sio.disconnect()
 
-        # TODO: In next step, close WebRTC connections
-        # if self.peer_connection:
-        #     await self.peer_connection.close()
+        # Close WebRTC connections
+        if self.peer_connection:
+            await self.peer_connection.close()
+            self.get_logger().info("WebRTC peer connection closed")
 
 
 async def async_main(args=None):

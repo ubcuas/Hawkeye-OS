@@ -102,11 +102,27 @@ async def signal(sid, data):
         )
         return
 
-    # Forward message to all other connected clients
-    for client_id in connected_clients:
-        if client_id != sid:
-            logger.info(f"Forwarding {message_type} from {sid} to {client_id}")
-            await sio.emit("signal", data, room=client_id)
+    # Get the target peer ID if specified
+    target_peer_id = data.get("to")
+
+    if target_peer_id:
+        # Send to specific peer
+        if target_peer_id in connected_clients:
+            logger.info(f"Forwarding {message_type} from {sid} to {target_peer_id}")
+            # Add "from" field so recipient knows who sent it
+            forwarded_data = {**data, "from": sid}
+            await sio.emit("signal", forwarded_data, room=target_peer_id)
+        else:
+            logger.error(f"Target peer {target_peer_id} not connected")
+            await sio.emit("error", {"message": f"Peer {target_peer_id} not found"}, room=sid)
+    else:
+        # Broadcast to all other connected clients
+        for client_id in connected_clients:
+            if client_id != sid:
+                logger.info(f"Forwarding {message_type} from {sid} to {client_id}")
+                # Add "from" field so recipient knows who sent it
+                forwarded_data = {**data, "from": sid}
+                await sio.emit("signal", forwarded_data, room=client_id)
 
 
 async def index(request):
