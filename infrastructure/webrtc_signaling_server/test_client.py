@@ -7,6 +7,8 @@ Handles full WebRTC connection flow with the streaming node.
 import asyncio
 import socketio
 from aiortc import RTCPeerConnection, RTCSessionDescription, RTCIceCandidate, RTCConfiguration, RTCIceServer
+import cv2
+import numpy as np
 
 # Create Socket.IO client
 sio = socketio.AsyncClient(logger=True, engineio_logger=True)
@@ -14,6 +16,7 @@ sio = socketio.AsyncClient(logger=True, engineio_logger=True)
 # WebRTC state
 peer_connection = None
 ice_candidate_queue = []
+received_frames = 0
 
 # WebRTC configuration with STUN servers
 rtc_configuration = RTCConfiguration(
@@ -62,6 +65,42 @@ async def error(data):
     print(f"[TEST CLIENT] error event received: {data}")
 
 
+async def receive_video_track(track):
+    """
+    Receive and process video frames from the track.
+    Displays frames using OpenCV and logs statistics.
+    """
+    global received_frames
+
+    print(f"[TEST CLIENT] Starting video track receiver for: {track.kind}")
+
+    try:
+        while True:
+            # Receive frame from track
+            frame = await track.recv()
+
+            # Convert to numpy array
+            img = frame.to_ndarray(format="rgb24")
+
+            # Convert RGB to BGR for OpenCV
+            img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+
+            # Display frame
+            cv2.imshow("WebRTC Video Stream", img_bgr)
+            cv2.waitKey(1)
+
+            received_frames += 1
+
+            # Log every 30 frames
+            if received_frames % 30 == 0:
+                print(f"[TEST CLIENT] Received {received_frames} frames ({img.shape[1]}x{img.shape[0]})")
+
+    except Exception as e:
+        print(f"[TEST CLIENT] Video track receiver ended: {e}")
+    finally:
+        cv2.destroyAllWindows()
+
+
 async def handle_offer(offer_data, from_peer_id):
     """Handle incoming SDP offer and send answer"""
     global peer_connection
@@ -101,6 +140,14 @@ async def handle_offer(offer_data, from_peer_id):
         @peer_connection.on("icegatheringstatechange")
         async def on_icegatheringstatechange():
             print(f"[TEST CLIENT] ICE gathering state: {peer_connection.iceGatheringState}")
+
+        # Set up track handler for receiving video
+        @peer_connection.on("track")
+        def on_track(track):
+            print(f"[TEST CLIENT] Received track: {track.kind}")
+            if track.kind == "video":
+                # Start receiving video in background task
+                asyncio.create_task(receive_video_track(track))
 
         # Set up data channel handler
         @peer_connection.on("datachannel")
