@@ -39,7 +39,7 @@ RUN mkdir -p /ros2_ws/src
 WORKDIR /ros2_ws
 
 # Install Python packages for WebRTC
-RUN pip3 install aiortc av opencv-python websockets numpy python-socketio
+RUN pip3 install aiortc av opencv-python websockets numpy python-socketio aiohttp
 
 COPY ./setup_env.sh /ros2_ws/setup_env.sh
 
