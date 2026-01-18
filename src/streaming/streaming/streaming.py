@@ -1,5 +1,6 @@
 import asyncio
 import os
+import traceback
 from typing import Optional
 import rclpy
 from rclpy.node import Node
@@ -68,6 +69,7 @@ class StreamingNode(Node):
             """Handle notification of peer joining"""
             peer_id = data.get("peer_id")
             self.get_logger().info(f"Peer joined: {peer_id}")
+            print(f"Peer joined: {peer_id}")
             self.peer_id = peer_id
 
             # TODO: In next step, initiate WebRTC offer when peer joins
@@ -122,7 +124,20 @@ class StreamingNode(Node):
                 await self.sio.wait()
 
             except Exception as e:
-                self.get_logger().error(f"Failed to connect to signaling server: {e}")
+                # Log the main error
+                self.get_logger().error(
+                    f"Failed to connect to signaling server: {e}"
+                )
+
+                # Log the cause if available (this is where the real error often is)
+                if e.__cause__:
+                    self.get_logger().error(f"Caused by: {e.__cause__}")
+
+                # Log full traceback for debugging
+                self.get_logger().debug(
+                    f"Full traceback:\n{traceback.format_exc()}"
+                )
+
                 self.get_logger().info(f"Retrying in {retry_delay:.1f} seconds...")
 
                 # Wait before retrying
