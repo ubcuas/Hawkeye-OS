@@ -1,14 +1,4 @@
 services:
-  webrtc_signaling:
-    build:
-      context: ./infrastructure/webrtc_signaling_server
-      dockerfile: Dockerfile
-    container_name: webrtc-signaling-server
-    network_mode: host
-    restart: unless-stopped
-    environment:
-      - PYTHONUNBUFFERED=1
-
   ros2_workspace:
     platform: linux/arm64
     build:
@@ -40,5 +30,5 @@ services:
     depends_on:
       - webrtc_signaling
 volumes:
-    ros2_ws_build:
-    ros2_ws_install:
+  ros2_ws_build:
+  ros2_ws_install:
