@@ -20,10 +20,12 @@
       "settings": {
         "python.defaultInterpreterPath": "/usr/bin/python3",
         "python.autoComplete.extraPaths": [
+          "/opt/ros/humble/local/lib/python3.10/dist-packages",
           "/opt/ros/humble/lib/python3.10/site-packages",
           "/ros2_ws/install/lib/python3.10/site-packages"
         ],
         "python.analysis.extraPaths": [
+          "/opt/ros/humble/local/lib/python3.10/dist-packages",
           "/opt/ros/humble/lib/python3.10/site-packages",
           "/ros2_ws/install/lib/python3.10/site-packages"
         ],
