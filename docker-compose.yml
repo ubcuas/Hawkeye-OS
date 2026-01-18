@@ -27,8 +27,6 @@ services:
       - OBJECT_DETECTION_TOPIC=object_detection/image
       - IMAGE_REQUEST_TOPIC=image_request
     ipc: host
-    depends_on:
-      - webrtc_signaling
 volumes:
   ros2_ws_build:
   ros2_ws_install:
