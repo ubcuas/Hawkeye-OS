@@ -15,7 +15,7 @@ setup(
         'setuptools',
         'websockets>=10.0',  # For GCOM communication
         'python-socketio',
-        'opencv-python',  # For reading test images
+        'opencv-python-headless',  # For reading test images
         'aiortc',  # For WebRTC streaming
         'av',  # For video frames (required by aiortc)
     ],
