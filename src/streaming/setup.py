@@ -14,6 +14,7 @@ setup(
     install_requires=[
         'setuptools',
         'python-socketio[asyncio_client]>=5.0',  # For signaling server communication
+        'aiohttp>=3.9.0',  # Required by python-socketio async client
         'aiortc',  # For WebRTC
         'av',  # For video frames (required by aiortc)
     ],

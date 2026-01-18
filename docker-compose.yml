@@ -4,8 +4,7 @@ services:
       context: ./infrastructure/webrtc_signaling_server
       dockerfile: Dockerfile
     container_name: webrtc-signaling-server
-    ports:
-      - "8080:8080"
+    network_mode: host
     restart: unless-stopped
     environment:
       - PYTHONUNBUFFERED=1
@@ -33,7 +32,7 @@ services:
 
       # Orchestrator configuration
       - GCOM_WEBSOCKET_URL=ws://host.docker.internal:8765
-      - WEBRTC_SIGNALING_URL=ws://localhost:8080
+      - WEBRTC_SIGNALING_URL=ws://localhost:8081
       # Topics
       - OBJECT_DETECTION_TOPIC=object_detection/image
       - IMAGE_REQUEST_TOPIC=image_request
