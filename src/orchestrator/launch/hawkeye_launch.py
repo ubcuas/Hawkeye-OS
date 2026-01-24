@@ -34,7 +34,7 @@ def generate_launch_description():
     navigation_node = Node(
         package='navigation',
         executable='navigation',      # Must match 'entry_points' in navigation/setup.py
-        name='mission_controller',
+        name='navigation_node',
         output='screen',
         emulate_tty=True
     )
