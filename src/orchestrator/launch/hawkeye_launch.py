@@ -39,7 +39,6 @@ def generate_launch_description():
         emulate_tty=True
     )
 
-    # --- 4. START ORCHESTRATOR NODE ---
     orchestrator_node = Node(
         package='orchestrator',
         executable='orchestrator', # Must match 'entry_points' in orchestrator/setup.py

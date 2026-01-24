@@ -72,38 +72,62 @@ def main():
     node = ArduPilotNode()
 
     # Spin in a background thread so callbacks (timer and subs) work
+    # daemon=True ensures this thread dies when the main thread dies
     thread = threading.Thread(target=rclpy.spin, args=(node,), daemon=True)
     thread.start()
 
-    # --- Startup Sequence ---
-    
-    # 1. Wait for connection
-    while not node.current_state.connected:
-        node.get_logger().info("Waiting for connection...")
-        time.sleep(1)
+    try:
+        # --- Startup Sequence ---
+        
+        # 1. Wait for connection
+        while not node.current_state.connected:
+            node.get_logger().info("Waiting for connection...")
+            time.sleep(1)
 
-    # 2. Set to GUIDED Mode
-    node.get_logger().info("Setting GUIDED mode...")
-    mode_cmd = SetMode.Request()
-    mode_cmd.custom_mode = 'GUIDED'
-    while not node.set_mode_client.call(mode_cmd).mode_sent:
-        time.sleep(1)
+        # 2. Set to GUIDED Mode
+        node.get_logger().info("Setting GUIDED mode...")
+        mode_cmd = SetMode.Request()
+        mode_cmd.custom_mode = 'GUIDED'
+        
+        # We use a loop here because service calls can sometimes fail if the FCU is busy
+        while not node.set_mode_client.call(mode_cmd).mode_sent:
+            node.get_logger().warn("Failed to set GUIDED, retrying...")
+            time.sleep(1)
 
-    # 3. Arm the drone
-    node.get_logger().info("Arming...")
-    arm_cmd = CommandBool.Request()
-    arm_cmd.value = True
-    while not node.arming_client.call(arm_cmd).success:
-        node.get_logger().warn("Arming failed (check GPS fix?), retrying...")
-        time.sleep(2)
+        # 3. Arm the drone
+        node.get_logger().info("Arming...")
+        arm_cmd = CommandBool.Request()
+        arm_cmd.value = True
+        
+        while not node.arming_client.call(arm_cmd).success:
+            node.get_logger().warn("Arming failed (check GPS fix or PreArm checks), retrying...")
+            time.sleep(2)
 
-    # 4. Takeoff
-    node.get_logger().info("Taking off...")
-    takeoff_cmd = CommandTOL.Request()
-    takeoff_cmd.altitude = 2.0 
-    node.takeoff_client.call(takeoff_cmd)
-    
-    node.get_logger().info("Drone is airborne and listening for commands on /drone/cmd_pose...")
+        # 4. Takeoff
+        node.get_logger().info("Taking off...")
+        takeoff_cmd = CommandTOL.Request()
+        takeoff_cmd.altitude = 2.0 
+        node.takeoff_client.call(takeoff_cmd)
+        
+        node.get_logger().info("Drone is airborne and listening for commands on /drone/cmd_pose...")
 
-    # Keep the main thread alive. 
-    # The actual movement is
+        # --- CRITICAL FIX: The "Keep Alive" Loop ---
+        # The background thread handles the callbacks (subscribers), 
+        # but the main thread must stay alive to prevent the script from exiting.
+        while rclpy.ok():
+            mode = node.current_state.mode
+            # alt = node.current_pose.pose.position.z
+            # x = node.current_pose.pose.position.x
+            # y = node.current_pose.pose.position.y
+            
+            # Print to console
+            node.get_logger().info(
+                f"STATUS: {mode} | ALT: {alt:.2f}m | POS: ({x:.1f}, {y:.1f})"
+            )
+            time.sleep(1)  # Sleep to save CPU; ROS handles callbacks in the other thread
+
+    except KeyboardInterrupt:
+        node.get_logger().info("Shutting down node...")
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
