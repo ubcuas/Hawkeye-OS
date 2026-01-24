@@ -15,7 +15,7 @@ import numpy as np
 
 class MockObjectDetection(Node):
     def __init__(self):
-        super().__init__('mock_object_detection')
+        super().__init__('mock_object_detection')   
         
         # Publisher for continuous video feed
         self.image_pub = self.create_publisher(Image, 'object_detection/image', 10)
