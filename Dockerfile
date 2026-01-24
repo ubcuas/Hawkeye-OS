@@ -1,76 +1,60 @@
-# Force ARM64 architecture for Apple Silicon / Raspberry Pi
-FROM --platform=linux/arm64 osrf/ros:humble-desktop
+ARG TARGETARCH
+FROM ros:humble
+
+# Build arguments for user configuration
+ARG USERNAME=ros
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
 ENV ROS_DISTRO=humble
 
+# Create non-root user with sudo
+RUN groupadd --gid $USER_GID $USERNAME \
+    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
+    && apt-get update \
+    && apt-get install -y sudo \
+    && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
+    && chmod 0440 /etc/sudoers.d/$USERNAME
+
 # Install dependencies
 RUN apt-get update && apt-get install -y \
     python3-pip \
     python3-colcon-common-extensions \
-    libgeographic-dev \
-    protobuf-compiler \
-    libprotobuf-dev \
-    geographiclib-tools \
-    ros-${ROS_DISTRO}-rclpy \
-    ros-${ROS_DISTRO}-rclcpp \
-    ros-${ROS_DISTRO}-std-msgs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install development tools
+RUN apt-get update && apt-get install -y \
+    git \
+    vim \
+    wget \
+    curl \
+    build-essential \
+    gdb \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update && apt-get install -y \
+    ros-${ROS_DISTRO}-mavros \
+    ros-${ROS_DISTRO}-mavros-extras \
+    && /opt/ros/${ROS_DISTRO}/lib/mavros/install_geographiclib_datasets.sh \
     && rm -rf /var/lib/apt/lists/*
 
 # Create workspace
 RUN mkdir -p /ros2_ws/src
 WORKDIR /ros2_ws
 
-## IMAGING SETUP ##
+# Install Python packages for WebRTC
+RUN pip3 install aiortc av opencv-python websockets numpy
 
-# Set ArenaSDK version and architecture
-ARG ARENA_SDK_VERSION=0.1.78
-# Hardcode to ARM64 since we're building for that platform
-RUN echo "ARM64" > /tmp/arena_arch
+# Configure ROS environment for new user
+RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /home/$USERNAME/.bashrc \
+    && echo "if [ -f /ros2_ws/install/setup.bash ]; then source /ros2_ws/install/setup.bash; fi" >> /home/$USERNAME/.bashrc
 
-# Copy the appropriate ArenaSDK based on architecture
-COPY src/imaging/external/ /tmp/arena_external/
+# Set workspace ownership
+RUN chown -R $USERNAME:$USERNAME /ros2_ws
 
-# Extract and install ArenaSDK conditionally
-RUN ARENA_ARCH=$(cat /tmp/arena_arch) && \
-    ARENA_TAR="ArenaSDK_v${ARENA_SDK_VERSION}_Linux_${ARENA_ARCH}.tar.gz" && \
-    echo "Looking for: /tmp/arena_external/$ARENA_TAR" && \
-    if [ -f "/tmp/arena_external/$ARENA_TAR" ]; then \
-        echo "Found ArenaSDK for $ARENA_ARCH architecture" && \
-        tar -xzvf "/tmp/arena_external/$ARENA_TAR" -C /tmp && \
-        mv "/tmp/ArenaSDK_Linux_${ARENA_ARCH}" /opt/arena_sdk; \
-    else \
-        echo "WARNING: ArenaSDK not found for $ARENA_ARCH architecture" && \
-        echo "Available files:" && ls -la /tmp/arena_external/ && \
-        mkdir -p /opt/arena_sdk/lib; \
-    fi
-
-# configure library paths so the arena SDK libraries can be found
-# Use find to automatically discover all Linux64* lib directories (works for ARM, x64, etc.)
-RUN echo "/opt/arena_sdk/lib" > /etc/ld.so.conf.d/Arena_SDK.conf && \
-    echo "/opt/arena_sdk/lib64" >> /etc/ld.so.conf.d/Arena_SDK.conf && \
-    find /opt/arena_sdk/GenICam/library/lib -type d -name "Linux64*" \
-      -exec bash -c 'echo "{}" >> /etc/ld.so.conf.d/Arena_SDK.conf' \;
-
-# update dynamic linker cache so system can find our libraries
-RUN ldconfig
-
-# set up metavision SDK (bundled w/ arena SDK, need symlinks for version compatibility)
-RUN if [ -d /opt/arena_sdk/Metavision/lib ]; then \
-      echo "/opt/arena_sdk/Metavision/lib" > /etc/ld.so.conf.d/Metavision_SDK.conf && \
-      cd /opt/arena_sdk/Metavision/lib && \
-      ln -sf libmetavision_sdk_core.so.4.6.2 libmetavision_sdk_core.so.4 && \
-      ln -sf libmetavision_sdk_base.so.4.6.2 libmetavision_sdk_base.so.4 && \
-      ldconfig; \
-    else \
-      echo "No Metavision SDK found for this architecture, skipping"; \
-    fi
-
-RUN ls -la ./src
-
-# Source ROS setup
-RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc
-RUN echo "source /ros2_ws/install/setup.bash" >> ~/.bashrc
+# Switch to non-root user
+USER $USERNAME
 
 CMD ["/bin/bash"]
