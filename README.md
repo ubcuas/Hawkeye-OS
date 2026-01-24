@@ -2,34 +2,42 @@
 
 ## Repository Structure 
 ```bash 
-ros2_pubsub/
+ros2/
+├── .dockerignore 
+├── .gitignore 
+├── docker-compose.yml 
 ├── Dockerfile
+├── mock_gcom.py 
 ├── README.md
-├── docker-compose.yml
-├── test-hawkeye-os.sh
+├── start_system.sh
+├── stop_system.sh 
+├── test-hawkeye-os.sh 
+├── received_stream/
 └── src/
-    ├── py_pubsub/
-    │   ├── package.xml
-    │   ├── setup.py
-    │   ├── setup.cfg
-    │   ├── resource/
-    │   │   └── py_pubsub
-    │   └── py_pubsub/
-    │       ├── __init__.py
-    │       ├── publisher.py
-    │       └── subscriber.py
-    └── cpp_pubsub/
+    └── orchestrator
         ├── package.xml
-        ├── CMakeLists.txt
-        └── src/
-            ├── publisher.cpp
-            └── subscriber.cpp
+        ├── setup.cfg
+        ├── setup.py
+        ├── orchestrator/
+            ├── __init__.py
+            ├── mock_object_detection.py
+            └── orchestrator.py 
+        └── resource/
+            └── orchestrator
+└── test_images
+    ├── anpanman_wooddadandan_hero.jpg
+    └── test_video.mp4
 ```
 
-## Getting Started 
-
+### Installing Dependencies 
 Install `docker, docker-compose, tmux`.
 
+Install required Python Packages: 
+```bash
+pip install websockets aiortc av opencv-python numpy
+```
+
+### Building the Image for the First Time (Manual)
 Build the image 
 ```bash
 docker-compose build
@@ -50,9 +58,11 @@ Inside the terminal, build the workplace
 colcon build
 ```
 
-# Orchestrator 
+### Testing (Manual) 
+Make sure you're in the project's root directory (../Hawkeye-OS)
+py
 
-Inside the terminal, after the workspace is built, run the orchestrator
+
 ```bash 
 ros2 run orchestrator orchestrator
 ```
@@ -73,6 +83,3 @@ Run the script:
 ```bash
 ./test-hawkeye-os.sh
 ```
-
-# Others 
-There are sample files called `py_pubsub, cpp_pubsub` which show basics of ROS. They'll be removed but feel free to browse for now.
