@@ -1,14 +1,24 @@
 #!/usr/bin/env python3
 """
-Test client to simulate frontend connection to signaling server.
-Handles full WebRTC connection flow with the streaming node.
+Test client to simulate a remote connection from outside ROS (e.g., gcom frontend).
+Runs independently from the ROS system and connects to the signaling server
+to establish WebRTC connection with the streaming node.
+Handles full WebRTC connection flow including signaling and video track reception.
 """
 
 import asyncio
 import socketio
-from aiortc import RTCPeerConnection, RTCSessionDescription, RTCIceCandidate, RTCConfiguration, RTCIceServer
+from aiortc import (
+    RTCPeerConnection,
+    RTCSessionDescription,
+    RTCIceCandidate,
+    RTCConfiguration,
+    RTCIceServer,
+)
 import cv2
 import numpy as np
+from pathlib import Path
+from datetime import datetime
 
 # Create Socket.IO client
 sio = socketio.AsyncClient(logger=True, engineio_logger=True)
@@ -17,6 +27,10 @@ sio = socketio.AsyncClient(logger=True, engineio_logger=True)
 peer_connection = None
 ice_candidate_queue = []
 received_frames = 0
+
+# Image output directory
+images_dir = Path(__file__).parent / "images"
+images_dir.mkdir(exist_ok=True)
 
 # WebRTC configuration with STUN servers
 rtc_configuration = RTCConfiguration(
@@ -69,10 +83,12 @@ async def receive_video_track(track):
     """
     Receive and process video frames from the track.
     Displays frames using OpenCV and logs statistics.
+    Saves frames to the images directory.
     """
     global received_frames
 
     print(f"[TEST CLIENT] Starting video track receiver for: {track.kind}")
+    print(f"[TEST CLIENT] Saving frames to: {images_dir}")
 
     try:
         while True:
@@ -86,14 +102,21 @@ async def receive_video_track(track):
             img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
             # Display frame
-            cv2.imshow("WebRTC Video Stream", img_bgr)
-            cv2.waitKey(1)
+            # cv2.imshow("WebRTC Video Stream", img_bgr)
+            # cv2.waitKey(1)
 
             received_frames += 1
 
+            # Save frame to disk
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            frame_filename = images_dir / f"frame_{received_frames:06d}_{timestamp}.jpg"
+            cv2.imwrite(str(frame_filename), img_bgr)
+
             # Log every 30 frames
             if received_frames % 30 == 0:
-                print(f"[TEST CLIENT] Received {received_frames} frames ({img.shape[1]}x{img.shape[0]})")
+                print(
+                    f"[TEST CLIENT] Received {received_frames} frames ({img.shape[1]}x{img.shape[0]}) - Saved to {frame_filename}"
+                )
 
     except Exception as e:
         print(f"[TEST CLIENT] Video track receiver ended: {e}")
@@ -116,15 +139,18 @@ async def handle_offer(offer_data, from_peer_id):
         async def on_icecandidate(candidate):
             if candidate:
                 print(f"[TEST CLIENT] Sending ICE candidate: {candidate.candidate}")
-                await sio.emit("signal", {
-                    "to": from_peer_id,
-                    "type": "ice-candidate",
-                    "data": {
-                        "candidate": candidate.candidate,
-                        "sdpMid": candidate.sdpMid,
-                        "sdpMLineIndex": candidate.sdpMLineIndex,
-                    }
-                })
+                await sio.emit(
+                    "signal",
+                    {
+                        "to": from_peer_id,
+                        "type": "ice-candidate",
+                        "data": {
+                            "candidate": candidate.candidate,
+                            "sdpMid": candidate.sdpMid,
+                            "sdpMLineIndex": candidate.sdpMLineIndex,
+                        },
+                    },
+                )
 
         # Set up connection state change handler
         @peer_connection.on("connectionstatechange")
@@ -134,12 +160,16 @@ async def handle_offer(offer_data, from_peer_id):
         # Set up ICE connection state change handler
         @peer_connection.on("iceconnectionstatechange")
         async def on_iceconnectionstatechange():
-            print(f"[TEST CLIENT] ICE connection state: {peer_connection.iceConnectionState}")
+            print(
+                f"[TEST CLIENT] ICE connection state: {peer_connection.iceConnectionState}"
+            )
 
         # Set up ICE gathering state change handler
         @peer_connection.on("icegatheringstatechange")
         async def on_icegatheringstatechange():
-            print(f"[TEST CLIENT] ICE gathering state: {peer_connection.iceGatheringState}")
+            print(
+                f"[TEST CLIENT] ICE gathering state: {peer_connection.iceGatheringState}"
+            )
 
         # Set up track handler for receiving video
         @peer_connection.on("track")
@@ -170,8 +200,7 @@ async def handle_offer(offer_data, from_peer_id):
 
         # Set remote description with the offer
         offer = RTCSessionDescription(
-            sdp=offer_data.get("sdp"),
-            type=offer_data.get("type")
+            sdp=offer_data.get("sdp"), type=offer_data.get("type")
         )
         await peer_connection.setRemoteDescription(offer)
 
@@ -179,7 +208,9 @@ async def handle_offer(offer_data, from_peer_id):
 
         # Process queued ICE candidates
         if ice_candidate_queue:
-            print(f"[TEST CLIENT] Processing {len(ice_candidate_queue)} queued ICE candidates")
+            print(
+                f"[TEST CLIENT] Processing {len(ice_candidate_queue)} queued ICE candidates"
+            )
             for candidate_data in ice_candidate_queue:
                 await add_ice_candidate(candidate_data)
             ice_candidate_queue.clear()
@@ -191,18 +222,22 @@ async def handle_offer(offer_data, from_peer_id):
         print("[TEST CLIENT] Sending SDP answer")
 
         # Send answer to peer
-        await sio.emit("signal", {
-            "to": from_peer_id,
-            "type": "answer",
-            "data": {
-                "sdp": peer_connection.localDescription.sdp,
-                "type": peer_connection.localDescription.type,
-            }
-        })
+        await sio.emit(
+            "signal",
+            {
+                "to": from_peer_id,
+                "type": "answer",
+                "data": {
+                    "sdp": peer_connection.localDescription.sdp,
+                    "type": peer_connection.localDescription.type,
+                },
+            },
+        )
 
     except Exception as e:
         print(f"[TEST CLIENT] Error handling offer: {e}")
         import traceback
+
         traceback.print_exc()
 
 
@@ -223,6 +258,7 @@ async def handle_ice_candidate(candidate_data):
     except Exception as e:
         print(f"[TEST CLIENT] Error handling ICE candidate: {e}")
         import traceback
+
         traceback.print_exc()
 
 
@@ -238,15 +274,18 @@ async def add_ice_candidate(candidate_data):
         candidate = RTCIceCandidate(
             candidate=candidate_data.get("candidate"),
             sdpMid=candidate_data.get("sdpMid"),
-            sdpMLineIndex=candidate_data.get("sdpMLineIndex")
+            sdpMLineIndex=candidate_data.get("sdpMLineIndex"),
         )
 
         await peer_connection.addIceCandidate(candidate)
-        print(f"[TEST CLIENT] Added ICE candidate: {candidate_data.get('candidate')[:50]}...")
+        print(
+            f"[TEST CLIENT] Added ICE candidate: {candidate_data.get('candidate')[:50]}..."
+        )
 
     except Exception as e:
         print(f"[TEST CLIENT] Error adding ICE candidate: {e}")
         import traceback
+
         traceback.print_exc()
 
 
@@ -256,7 +295,9 @@ async def main():
 
     print(f"[TEST CLIENT] Connecting to {signaling_url}")
     print("[TEST CLIENT] This simulates the frontend connecting")
-    print("[TEST CLIENT] If streaming node is already connected, it should receive peer_joined")
+    print(
+        "[TEST CLIENT] If streaming node is already connected, it should receive peer_joined"
+    )
     print()
 
     try:
@@ -269,6 +310,7 @@ async def main():
     except Exception as e:
         print(f"[TEST CLIENT] Error: {e}")
         import traceback
+
         traceback.print_exc()
     finally:
         # Clean up
