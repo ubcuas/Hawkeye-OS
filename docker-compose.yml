@@ -8,7 +8,9 @@ services:
     container_name: hawkeye-ros
     stdin_open: true
     tty: true
+    privileged: true  
     volumes:
+      - /dev:/dev     
       - ./src:/ros2_ws/src
     working_dir: /ros2_ws
     command: /bin/bash -c "colcon build && source install/setup.bash && /bin/bash"
