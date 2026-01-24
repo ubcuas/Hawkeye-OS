@@ -12,7 +12,7 @@ def generate_launch_description():
     # Define the MAVROS connection URL (default to SITL/Sim)
     fcu_url_arg = DeclareLaunchArgument(
         'fcu_url',
-        default_value='tcp://127.0.0.1:5760', # Adjusted to standard SITL port
+        default_value='tcp://host.docker.internal:5790', 
         description='URL to the MAVLink stream'
     )
 
@@ -40,17 +40,17 @@ def generate_launch_description():
     )
 
     # --- 4. START ORCHESTRATOR NODE ---
-    orchestrator_node = Node(
-        package='orchestrator',
-        executable='orchestrator', # Must match 'entry_points' in orchestrator/setup.py
-        name='orchestrator_node',
-        output='screen',
-        emulate_tty=True
-    )
+    # orchestrator_node = Node(
+    #     package='orchestrator',
+    #     executable='orchestrator', # Must match 'entry_points' in orchestrator/setup.py
+    #     name='orchestrator_node',
+    #     output='screen',
+    #     emulate_tty=True
+    # )
 
     return LaunchDescription([
         fcu_url_arg,
         mavros_launch,
         navigation_node,
-        orchestrator_node
+        # orchestrator_node
     ])
