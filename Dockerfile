@@ -41,8 +41,6 @@ WORKDIR /ros2_ws
 # Install Python packages for WebRTC
 RUN pip3 install aiortc av opencv-python-headless websockets numpy python-socketio aiohttp
 
-COPY ./setup_env.sh /ros2_ws/setup_env.sh
-
 # Configure ROS environment for new user
 RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /home/$USERNAME/.bashrc \
     && echo "if [ -f /ros2_ws/install/setup.bash ]; then source /ros2_ws/install/setup.bash; fi" >> /home/$USERNAME/.bashrc
