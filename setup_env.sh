@@ -1,1 +1,0 @@
-export WEBRTC_SIGNALING_URL="ws://localhost:8081"
