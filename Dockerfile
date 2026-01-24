@@ -34,6 +34,12 @@ RUN apt-get update && apt-get install -y \
     gdb \
     && rm -rf /var/lib/apt/lists/*
 
+RUN apt-get update && apt-get install -y \
+    ros-${ROS_DISTRO}-mavros \
+    ros-${ROS_DISTRO}-mavros-extras \
+    && /opt/ros/${ROS_DISTRO}/lib/mavros/install_geographiclib_datasets.sh \
+    && rm -rf /var/lib/apt/lists/*
+
 # Create workspace
 RUN mkdir -p /ros2_ws/src
 WORKDIR /ros2_ws
