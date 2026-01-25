@@ -38,6 +38,8 @@ RUN apt-get update && apt-get install -y \
 RUN mkdir -p /ros2_ws/src
 WORKDIR /ros2_ws
 
+COPY ./setup_env.sh /ros2_ws/setup_env.sh
+
 # Install Python packages for WebRTC
 RUN pip3 install aiortc av opencv-python-headless websockets numpy python-socketio aiohttp
 
