@@ -1,7 +1,10 @@
 {
   "name": "Hawkeye ROS 2 Humble",
 
-  "dockerComposeFile": "../docker-compose.yml",
+  "dockerComposeFile": [
+    "../docker-compose.yml",
+    "../docker-compose.override.yml"
+  ],
   "service": "ros2_workspace",
   "workspaceFolder": "/ros2_ws",
 
