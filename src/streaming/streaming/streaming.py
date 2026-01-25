@@ -6,7 +6,13 @@ import rclpy
 from rclpy.node import Node
 from rclpy.executors import SingleThreadedExecutor
 import socketio
-from aiortc import RTCPeerConnection, RTCSessionDescription, RTCIceCandidate, RTCConfiguration, RTCIceServer
+from aiortc import (
+    RTCPeerConnection,
+    RTCSessionDescription,
+    RTCIceCandidate,
+    RTCConfiguration,
+    RTCIceServer,
+)
 from aiortc.sdp import candidate_from_sdp
 from aiortc.mediastreams import VideoStreamTrack
 from av import VideoFrame
@@ -117,10 +123,7 @@ class StreamingNode(Node):
 
         # Subscribe to video feed from object detection
         self.image_subscription = self.create_subscription(
-            Image,
-            'object_detection/image',
-            self._image_callback,
-            10
+            Image, "object_detection/image", self._image_callback, 10
         )
 
         # Register Socket.IO event handlers
@@ -140,7 +143,7 @@ class StreamingNode(Node):
             # ROS Image data is in bytes, reshape according to dimensions
             height = msg.height
             width = msg.width
-            channels = 3 if msg.encoding == 'rgb8' else 1
+            channels = 3 if msg.encoding == "rgb8" else 1
 
             # Convert bytes to numpy array
             frame_data = np.frombuffer(msg.data, dtype=np.uint8)
@@ -148,7 +151,20 @@ class StreamingNode(Node):
 
             # Add frame to video track if it exists
             if self.video_track:
+                queue_size_before = self.video_track.frame_queue.qsize()
                 self.video_track.put_frame(frame_data)
+                queue_size_after = self.video_track.frame_queue.qsize()
+
+                # Log occasionally to track frame flow (every 30 frames)
+                if queue_size_after % 30 == 0:
+                    self.get_logger().info(
+                        f"Frame added to video track. Queue: {queue_size_before} -> {queue_size_after}. "
+                        f"Frame size: {height}x{width}x{channels}"
+                    )
+            else:
+                self.get_logger().warn(
+                    "Received image but video_track is None, dropping frame"
+                )
 
         except Exception as e:
             self.get_logger().error(f"Error processing image: {e}")
@@ -185,10 +201,10 @@ class StreamingNode(Node):
             message_type = data.get("type")
             self.get_logger().info(f"Received signal: {message_type}")
 
-            if message_type == 'answer':
-                await self._handle_answer(data.get('data'))
-            elif message_type == 'ice-candidate':
-                await self._handle_ice_candidate(data.get('data'))
+            if message_type == "answer":
+                await self._handle_answer(data.get("data"))
+            elif message_type == "ice-candidate":
+                await self._handle_ice_candidate(data.get("data"))
 
         @self.sio.event
         async def error(data):
@@ -201,23 +217,33 @@ class StreamingNode(Node):
             # Check if peer connection already exists
             if self.peer_connection:
                 current_state = self.peer_connection.connectionState
-                self.get_logger().info(f"Peer connection already exists with state: {current_state}")
+                self.get_logger().info(
+                    f"Peer connection already exists with state: {current_state}"
+                )
 
                 # If connection is active or connecting, don't create a new one
                 if current_state in ["new", "connecting", "connected"]:
-                    self.get_logger().warn("Peer connection already active, skipping offer creation")
+                    self.get_logger().warn(
+                        "Peer connection already active, skipping offer creation"
+                    )
                     return
 
                 # If connection is failed or closed, close it properly before creating new one
                 if current_state in ["failed", "closed"]:
-                    self.get_logger().info("Closing old peer connection before creating new one")
+                    self.get_logger().info(
+                        "Closing old peer connection before creating new one"
+                    )
                     await self.peer_connection.close()
                     self.peer_connection = None
+                    self.video_track = None
+                    self.data_channel = None
 
             self.get_logger().info("Creating WebRTC peer connection")
 
             # Create peer connection
-            self.peer_connection = RTCPeerConnection(configuration=self.rtc_configuration)
+            self.peer_connection = RTCPeerConnection(
+                configuration=self.rtc_configuration
+            )
 
             # Capture in local variable for type narrowing
             pc = self.peer_connection
@@ -226,16 +252,21 @@ class StreamingNode(Node):
             @pc.on("icecandidate")
             async def on_icecandidate(candidate):
                 if candidate:
-                    self.get_logger().info(f"Sending ICE candidate: {candidate.candidate}")
-                    await self.sio.emit("signal", {
-                        "to": self.peer_id,
-                        "type": "ice-candidate",
-                        "data": {
-                            "candidate": candidate.candidate,
-                            "sdpMid": candidate.sdpMid,
-                            "sdpMLineIndex": candidate.sdpMLineIndex,
-                        }
-                    })
+                    self.get_logger().info(
+                        f"Sending ICE candidate: {candidate.candidate}"
+                    )
+                    await self.sio.emit(
+                        "signal",
+                        {
+                            "to": self.peer_id,
+                            "type": "ice-candidate",
+                            "data": {
+                                "candidate": candidate.candidate,
+                                "sdpMid": candidate.sdpMid,
+                                "sdpMLineIndex": candidate.sdpMLineIndex,
+                            },
+                        },
+                    )
 
             # Set up connection state change handler
             @pc.on("connectionstatechange")
@@ -258,6 +289,9 @@ class StreamingNode(Node):
             self.video_track = ROSVideoStreamTrack()
             pc.addTrack(self.video_track)
             self.get_logger().info("Video track added to peer connection")
+            self.get_logger().info(
+                f"Video track queue size: {self.video_track.frame_queue.qsize()}"
+            )
 
             # Create data channel
             self.data_channel = pc.createDataChannel("streaming")
@@ -282,14 +316,17 @@ class StreamingNode(Node):
             self.get_logger().info("Sending SDP offer to peer")
 
             # Send offer to peer via signaling server
-            await self.sio.emit("signal", {
-                "to": self.peer_id,
-                "type": "offer",
-                "data": {
-                    "sdp": pc.localDescription.sdp,
-                    "type": pc.localDescription.type,
-                }
-            })
+            await self.sio.emit(
+                "signal",
+                {
+                    "to": self.peer_id,
+                    "type": "offer",
+                    "data": {
+                        "sdp": pc.localDescription.sdp,
+                        "type": pc.localDescription.type,
+                    },
+                },
+            )
 
         except Exception as e:
             self.get_logger().error(f"Error creating WebRTC offer: {e}")
@@ -301,13 +338,14 @@ class StreamingNode(Node):
             self.get_logger().info("Received SDP answer from peer")
 
             if not self.peer_connection:
-                self.get_logger().error("Cannot handle answer: peer connection not initialized")
+                self.get_logger().error(
+                    "Cannot handle answer: peer connection not initialized"
+                )
                 return
 
             # Set remote description
             answer = RTCSessionDescription(
-                sdp=answer_data.get("sdp"),
-                type=answer_data.get("type")
+                sdp=answer_data.get("sdp"), type=answer_data.get("type")
             )
             await self.peer_connection.setRemoteDescription(answer)
 
@@ -315,7 +353,9 @@ class StreamingNode(Node):
 
             # Process queued ICE candidates now that we have remote description
             if self.ice_candidate_queue:
-                self.get_logger().info(f"Processing {len(self.ice_candidate_queue)} queued ICE candidates")
+                self.get_logger().info(
+                    f"Processing {len(self.ice_candidate_queue)} queued ICE candidates"
+                )
                 for candidate_data in self.ice_candidate_queue:
                     await self._add_ice_candidate(candidate_data)
                 self.ice_candidate_queue.clear()
@@ -329,7 +369,9 @@ class StreamingNode(Node):
         try:
             # If we don't have remote description yet, queue the candidate
             if not self.peer_connection or not self.peer_connection.remoteDescription:
-                self.get_logger().info("Queueing ICE candidate (no remote description yet)")
+                self.get_logger().info(
+                    "Queueing ICE candidate (no remote description yet)"
+                )
                 self.ice_candidate_queue.append(candidate_data)
                 return
 
@@ -363,7 +405,9 @@ class StreamingNode(Node):
 
             if self.peer_connection:
                 await self.peer_connection.addIceCandidate(candidate)
-            self.get_logger().info(f"Added ICE candidate: {candidate_data.get('candidate')[:50]}...")
+            self.get_logger().info(
+                f"Added ICE candidate: {candidate_data.get('candidate')[:50]}..."
+            )
 
         except Exception as e:
             self.get_logger().error(f"Error adding ICE candidate: {e}")
@@ -402,18 +446,14 @@ class StreamingNode(Node):
 
             except Exception as e:
                 # Log the main error
-                self.get_logger().error(
-                    f"Failed to connect to signaling server: {e}"
-                )
+                self.get_logger().error(f"Failed to connect to signaling server: {e}")
 
                 # Log the cause if available (this is where the real error often is)
                 if e.__cause__:
                     self.get_logger().error(f"Caused by: {e.__cause__}")
 
                 # Log full traceback for debugging
-                self.get_logger().debug(
-                    f"Full traceback:\n{traceback.format_exc()}"
-                )
+                self.get_logger().debug(f"Full traceback:\n{traceback.format_exc()}")
 
                 self.get_logger().info(f"Retrying in {retry_delay:.1f} seconds...")
 

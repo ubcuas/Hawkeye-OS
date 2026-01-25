@@ -10,7 +10,74 @@ function VideoDisplay({ stream }: VideoDisplayProps) {
 
   useEffect(() => {
     if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream
+      console.log('VideoDisplay: Setting stream to video element');
+      console.log('Stream active:', stream.active);
+      console.log('Stream tracks:', stream.getTracks().map(t => ({
+        kind: t.kind,
+        enabled: t.enabled,
+        muted: t.muted,
+        readyState: t.readyState,
+      })));
+
+      videoRef.current.srcObject = stream;
+
+      const videoElement = videoRef.current;
+
+      const handleLoadedMetadata = () => {
+        console.log('Video metadata loaded');
+        console.log('Video dimensions:', {
+          videoWidth: videoElement.videoWidth,
+          videoHeight: videoElement.videoHeight,
+        });
+      };
+
+      const handleLoadedData = () => {
+        console.log('Video data loaded');
+      };
+
+      const handleCanPlay = () => {
+        console.log('Video can play');
+      };
+
+      const handlePlaying = () => {
+        console.log('Video is playing');
+      };
+
+      const handleWaiting = () => {
+        console.log('Video is waiting for data');
+      };
+
+      const handleStalled = () => {
+        console.log('Video stalled');
+      };
+
+      const handleError = (e: Event) => {
+        console.error('Video error:', e);
+        if (videoElement.error) {
+          console.error('Video error details:', {
+            code: videoElement.error.code,
+            message: videoElement.error.message,
+          });
+        }
+      };
+
+      videoElement.addEventListener('loadedmetadata', handleLoadedMetadata);
+      videoElement.addEventListener('loadeddata', handleLoadedData);
+      videoElement.addEventListener('canplay', handleCanPlay);
+      videoElement.addEventListener('playing', handlePlaying);
+      videoElement.addEventListener('waiting', handleWaiting);
+      videoElement.addEventListener('stalled', handleStalled);
+      videoElement.addEventListener('error', handleError);
+
+      return () => {
+        videoElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
+        videoElement.removeEventListener('loadeddata', handleLoadedData);
+        videoElement.removeEventListener('canplay', handleCanPlay);
+        videoElement.removeEventListener('playing', handlePlaying);
+        videoElement.removeEventListener('waiting', handleWaiting);
+        videoElement.removeEventListener('stalled', handleStalled);
+        videoElement.removeEventListener('error', handleError);
+      };
     }
   }, [stream])
 
