@@ -38,8 +38,9 @@ RUN apt-get update && apt-get install -y \
 RUN mkdir -p /ros2_ws/src
 WORKDIR /ros2_ws
 
-# Install Python packages for WebRTC
-RUN pip3 install aiortc av opencv-python websockets numpy
+# Install Python packages
+COPY requirements.txt /tmp/requirements.txt
+RUN pip3 install -r /tmp/requirements.txt
 
 # Configure ROS environment for new user
 RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /home/$USERNAME/.bashrc \
