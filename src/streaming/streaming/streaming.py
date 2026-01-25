@@ -47,6 +47,7 @@ class ROSVideoStreamTrack(VideoStreamTrack):
         Called by aiortc when it needs a frame to send.
         """
         try:
+            print("\n\nServing frame in ROSVideoStreamTrack.recv(), queue length: ", self.frame_queue.qsize(), "\n\n")
             # Get frame from queue (blocks if empty)
             frame_data = await asyncio.wait_for(self.frame_queue.get(), timeout=1.0)
 
