@@ -114,6 +114,8 @@ class StreamingNode(Node):
         self.ice_gathering_complete = False
         self.video_track = None
 
+        self._received_frame_count = 0
+
         # WebRTC configuration with STUN servers
         self.rtc_configuration = RTCConfiguration(
             iceServers=[
@@ -140,6 +142,8 @@ class StreamingNode(Node):
         Converts ROS Image message to numpy array and adds to video track queue.
         """
         try:
+            self._received_frame_count += 1
+
             # Convert ROS Image message to numpy array
             # ROS Image data is in bytes, reshape according to dimensions
             height = msg.height
@@ -150,22 +154,24 @@ class StreamingNode(Node):
             frame_data = np.frombuffer(msg.data, dtype=np.uint8)
             frame_data = frame_data.reshape((height, width, channels))
 
+
             # Add frame to video track if it exists
             if self.video_track:
                 queue_size_before = self.video_track.frame_queue.qsize()
                 self.video_track.put_frame(frame_data)
                 queue_size_after = self.video_track.frame_queue.qsize()
 
-                # Log occasionally to track frame flow (every 30 frames)
-                if queue_size_after % 30 == 0:
+                # Log occasionally to track frame flow
+                if self._received_frame_count % 90 == 0:
                     self.get_logger().info(
                         f"Frame added to video track. Queue: {queue_size_before} -> {queue_size_after}. "
                         f"Frame size: {height}x{width}x{channels}"
                     )
             else:
-                self.get_logger().warn(
-                    "Received image but video_track is None, dropping frame"
-                )
+                if self._received_frame_count % 90 == 0:
+                    self.get_logger().warn(
+                        "Received image but video_track is None, dropping frame"
+                    )
 
         except Exception as e:
             self.get_logger().error(f"Error processing image: {e}")
@@ -492,7 +498,7 @@ async def async_main(args=None):
         """Spin the ROS node"""
         while rclpy.ok():
             executor.spin_once(timeout_sec=0)
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(1e-4)
 
     try:
         # Run both the ROS spin loop and signaling server connection
