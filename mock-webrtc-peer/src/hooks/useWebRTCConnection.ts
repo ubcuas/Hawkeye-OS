@@ -63,9 +63,49 @@ export function useWebRTCConnection(): UseWebRTCConnectionResult {
 
     pc.addEventListener('track', (event) => {
       console.log('Remote track received:', event.track.kind);
+      console.log('Track details:', {
+        id: event.track.id,
+        kind: event.track.kind,
+        label: event.track.label,
+        enabled: event.track.enabled,
+        muted: event.track.muted,
+        readyState: event.track.readyState,
+      });
+
       if (event.streams && event.streams[0]) {
+        const stream = event.streams[0];
         console.log('Setting remote stream');
+        console.log('Stream details:', {
+          id: stream.id,
+          active: stream.active,
+          trackCount: stream.getTracks().length,
+        });
+
+        // Log track state changes
+        event.track.addEventListener('ended', () => {
+          console.log('Track ended:', event.track.kind);
+        });
+
+        event.track.addEventListener('mute', () => {
+          console.log('Track muted:', event.track.kind);
+        });
+
+        event.track.addEventListener('unmute', () => {
+          console.log('Track unmuted:', event.track.kind);
+        });
+
+        // Log when track becomes active/inactive
+        stream.addEventListener('addtrack', (e) => {
+          console.log('Track added to stream:', (e as MediaStreamTrackEvent).track.kind);
+        });
+
+        stream.addEventListener('removetrack', (e) => {
+          console.log('Track removed from stream:', (e as MediaStreamTrackEvent).track.kind);
+        });
+
         setRemoteStream(event.streams[0]);
+      } else {
+        console.warn('Track received but no streams available');
       }
     });
 
