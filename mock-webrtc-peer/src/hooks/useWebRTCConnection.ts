@@ -98,6 +98,22 @@ export function useWebRTCConnection(): UseWebRTCConnectionResult {
   const handleOffer = async (offerData: { sdp: string; type: string }, from: string) => {
     try {
       console.log('Received offer from peer:', from);
+
+      if (peerConnectionRef.current) {
+        const currentState = peerConnectionRef.current.signalingState;
+        console.log('Current signaling state:', currentState);
+
+        if (currentState !== 'stable') {
+          console.warn('Rejecting offer - peer connection not in stable state:', currentState);
+          return;
+        }
+
+        if (remotePeerIdRef.current && remotePeerIdRef.current !== from) {
+          console.warn(`Rejecting offer from different peer. Current: ${remotePeerIdRef.current}, New: ${from}`);
+          return;
+        }
+      }
+
       remotePeerIdRef.current = from;
 
       if (!peerConnectionRef.current) {
