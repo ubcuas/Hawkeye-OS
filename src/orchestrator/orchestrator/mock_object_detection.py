@@ -86,10 +86,10 @@ class MockObjectDetection(Node):
             self.frame_count += 1
             
             # Log every 30 frames (once per second)
-            if self.frame_count % 30 == 0:
-                self.get_logger().info(
-                    f'Published frame {self.frame_count} ({width}x{height})'
-                )
+            # if self.frame_count % 30 == 0:
+            #     self.get_logger().info(
+            #         f'Published frame {self.frame_count} ({width}x{height})'
+            #     )
             
         except Exception as e:
             self.get_logger().error(f'Error processing video frame: {e}')
