@@ -18,7 +18,8 @@
         "ms-iot.vscode-ros",
         "ms-python.python",
         "ms-vscode.cpptools",
-        "twxs.cmake"
+        "twxs.cmake",
+        "charliermarsh.ruff"
       ],
       "settings": {
         "python.defaultInterpreterPath": "/usr/bin/python3",
