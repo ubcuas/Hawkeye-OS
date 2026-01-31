@@ -226,22 +226,24 @@ class StreamingNode(Node):
                     f"Peer connection already exists with state: {current_state}"
                 )
 
+                # ! Uncomment if we want existing connections to trump new attempts
+                # right now we assume there is only one peer we want to connect and it is always the most recent one to attempt, even if there was one already connected
                 # If connection is active or connecting, don't create a new one
-                if current_state in ["new", "connecting", "connected"]:
-                    self.get_logger().warn(
-                        "Peer connection already active, skipping offer creation"
-                    )
-                    return
+                # if current_state in ["new", "connecting", "connected"]:
+                #     self.get_logger().warn(
+                #         "Peer connection already active, skipping offer creation"
+                #     )
+                #     return
 
                 # If connection is failed or closed, close it properly before creating new one
-                if current_state in ["failed", "closed"]:
-                    self.get_logger().info(
-                        "Closing old peer connection before creating new one"
-                    )
-                    await self.peer_connection.close()
-                    self.peer_connection = None
-                    self.video_track = None
-                    self.data_channel = None
+                # if current_state in ["failed", "closed"]:
+                self.get_logger().info(
+                    "Closing old peer connection before creating new one"
+                )
+                await self.peer_connection.close()
+                self.peer_connection = None
+                self.video_track = None
+                self.data_channel = None
 
             self.get_logger().info("Creating WebRTC peer connection")
 
