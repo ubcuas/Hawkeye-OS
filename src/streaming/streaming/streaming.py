@@ -38,7 +38,6 @@ class ROSVideoStreamTrack(VideoStreamTrack):
     def __init__(self):
         super().__init__()
         self.frame_queue = asyncio.Queue(maxsize=30)
-        self._timestamp = 0
         self._frame_count = 0
 
     async def recv(self):
@@ -47,7 +46,6 @@ class ROSVideoStreamTrack(VideoStreamTrack):
         Called by aiortc when it needs a frame to send.
         """
         try:
-            print("\n\nServing frame in ROSVideoStreamTrack.recv(), queue length: ", self.frame_queue.qsize(), "\n\n")
             # Get frame from queue (blocks if empty)
             frame_data = await asyncio.wait_for(self.frame_queue.get(), timeout=1.0)
 
