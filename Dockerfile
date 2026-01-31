@@ -22,6 +22,9 @@ RUN groupadd --gid $USER_GID $USERNAME \
 RUN apt-get update && apt-get install -y \
     python3-pip \
     python3-colcon-common-extensions \
+    libprotobuf-dev \
+    protobuf-compiler \
+    libopencv-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install development tools
@@ -40,8 +43,8 @@ RUN apt-get update && apt-get install -y \
     && /opt/ros/${ROS_DISTRO}/lib/mavros/install_geographiclib_datasets.sh \
     && rm -rf /var/lib/apt/lists/*
 
-# Create workspace
-RUN mkdir -p /ros2_ws/src
+# Create workspace with build and install directories
+RUN mkdir -p /ros2_ws/src /ros2_ws/build /ros2_ws/install
 WORKDIR /ros2_ws
 
 # Install Python packages for WebRTC
