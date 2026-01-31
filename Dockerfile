@@ -53,8 +53,20 @@ RUN apt-get update && apt-get install -y \
 RUN mkdir -p /ros2_ws/src
 WORKDIR /ros2_ws
 
+COPY ./setup_env.sh /ros2_ws/setup_env.sh
+
 # Install Python packages for WebRTC
-RUN pip3 install aiortc av opencv-python websockets numpy
+RUN pip3 install aiortc av opencv-python-headless websockets numpy python-socketio aiohttp
+
+# Configure ROS environment for new user
+RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /home/$USERNAME/.bashrc \
+    && echo "if [ -f /ros2_ws/install/setup.bash ]; then source /ros2_ws/install/setup.bash; fi" >> /home/$USERNAME/.bashrc
+
+# Set workspace ownership
+RUN chown -R $USERNAME:$USERNAME /ros2_ws
+
+# Switch to non-root user
+USER $USERNAME
 
 # Configure ROS environment for new user
 RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /home/$USERNAME/.bashrc \
