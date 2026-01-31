@@ -20,8 +20,8 @@ import numpy as np
 from sensor_msgs.msg import Image
 
 from streaming.constants import WEBRTC_SIGNALING_URL
-from streaming.streaming.signaling_handler import SignalingHandler
-from streaming.streaming.video_track import ROSVideoStreamTrack
+from streaming.signaling_handler import SignalingHandler
+from streaming.video_track import ROSVideoStreamTrack
 
 """
 Streaming Node
