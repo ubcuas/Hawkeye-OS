@@ -12,6 +12,11 @@ class ImageProcessor(Node):
     def __init__(self):
         super().__init__('image_processor')
         
+        # Cache for latest GPS and IMU data
+        self.latest_gps = None
+        self.latest_imu = None
+        self.gps_lock = None  # Will store threading.Lock() if needed
+        
         # Subscribe to official RealSense compressed image topic
         self.image_subscription = self.create_subscription(
             CompressedImage,
@@ -42,15 +47,45 @@ class ImageProcessor(Node):
             '/detections',
             10
         )
+        
+        self.get_logger().info('ImageProcessor initialized - waiting for GPS and camera data...')
     
     def image_callback(self, msg):
-        pass
+        """Process image and attach latest GPS/IMU data."""
+        # Check if we have GPS data yet
+        if self.latest_gps is None:
+            self.get_logger().warn('No GPS data available yet, skipping image', throttle_duration_sec=5.0)
+            return
+        
+        # Get timestamps for synchronization check
+        image_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+        gps_time = self.latest_gps.header.stamp.sec + self.latest_gps.header.stamp.nanosec * 1e-9
+        time_diff = abs(image_time - gps_time)
+        
+        # Warn if GPS data is too old (more than 1 second)
+        if time_diff > 1.0:
+            self.get_logger().warn(f'GPS data is {time_diff:.2f}s old - may be stale')
+        
+        # Log synchronized data
+        self.get_logger().info(
+            f'Image captured at ({self.latest_gps.latitude:.6f}, {self.latest_gps.longitude:.6f}, {self.latest_gps.altitude:.2f}m) '
+            f'time_diff={time_diff*1000:.1f}ms'
+        )
+        
+
+        # TODO: Publish final image with GPS coordinates
     
     def imu_callback(self, msg):
-        pass
+        """Cache latest IMU data."""
+        self.latest_imu = msg
     
     def gps_callback(self, msg):
-        pass
+        """Cache latest GPS data."""
+        self.latest_gps = msg
+        self.get_logger().debug(
+            f'GPS updated: ({msg.latitude:.6f}, {msg.longitude:.6f}, {msg.altitude:.2f}m)',
+            throttle_duration_sec=1.0
+        )
 
 
 def main(args=None):
