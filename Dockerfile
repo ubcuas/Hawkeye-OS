@@ -5,7 +5,7 @@ FROM osrf/ros:humble-desktop-full
 ENV DEBIAN_FRONTEND=noninteractive
 ENV ROS_DISTRO=humble
 
-# Install dependencies
+# Install dependencies (rcl, )
 RUN apt-get update && apt-get install -y \
     python3-pip \
     python3-colcon-common-extensions \
@@ -17,6 +17,9 @@ RUN apt-get update && apt-get install -y \
 # Create workspace
 RUN mkdir -p /ros2_ws/src
 WORKDIR /ros2_ws
+
+# Install Python packages for WebRTC
+RUN pip3 install aiortc av opencv-python websockets numpy
 
 # Source ROS setup
 RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc
