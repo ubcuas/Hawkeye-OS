@@ -14,8 +14,6 @@ services:
       - /dev:/dev     
       - ./src:/ros2_ws/src
       - ./test_images:/ros2_ws/test_images
-      - ros2_ws_build:/ros2_ws/build
-      - ros2_ws_install:/ros2_ws/install
     working_dir: /ros2_ws
     command: bash -lc "colcon build --packages-skip imaging && source install/setup.bash && tail -f /dev/null"
     network_mode: host

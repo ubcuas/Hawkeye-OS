@@ -6,6 +6,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.executors import SingleThreadedExecutor
 import socketio
+import cv2
 from aiortc import (
     RTCPeerConnection,
     RTCSessionDescription,
@@ -135,44 +136,61 @@ class StreamingNode(Node):
         self.get_logger().info("Subscribed to: object_detection/image")
 
     def _image_callback(self, msg: Image):
-        """
-        Callback for receiving images from ROS topic.
-        Converts ROS Image message to numpy array and adds to video track queue.
-        """
         try:
             self._received_frame_count += 1
 
-            # Convert ROS Image message to numpy array
-            # ROS Image data is in bytes, reshape according to dimensions
             height = msg.height
             width = msg.width
-            channels = 3 if msg.encoding == "rgb8" else 1
 
-            # Convert bytes to numpy array
+            # Determine channels from encoding
+            if msg.encoding in ("rgb8", "bgr8"):
+                channels = 3
+            elif msg.encoding in ("mono8",):
+                channels = 1
+            else:
+                if self._received_frame_count % 60 == 0:
+                    self.get_logger().warn(
+                        f"Unsupported encoding '{msg.encoding}', dropping frame"
+                    )
+                return
+
             frame_data = np.frombuffer(msg.data, dtype=np.uint8)
+
+            # Guard against malformed data
+            expected_size = height * width * channels
+            if frame_data.size != expected_size:
+                self.get_logger().warn(
+                    f"Image data size mismatch: got {frame_data.size}, "
+                    f"expected {expected_size} ({height}x{width}x{channels})"
+                )
+                return
+
             frame_data = frame_data.reshape((height, width, channels))
 
+            # Convert to RGB for WebRTC
+            if msg.encoding == "bgr8":
+                frame_data = cv2.cvtColor(frame_data, cv2.COLOR_BGR2RGB)
+            elif msg.encoding == "mono8":
+                frame_data = cv2.cvtColor(frame_data, cv2.COLOR_GRAY2RGB)
+            # if rgb8: already RGB
 
-            # Add frame to video track if it exists
             if self.video_track:
-                queue_size_before = self.video_track.frame_queue.qsize()
                 self.video_track.put_frame(frame_data)
-                queue_size_after = self.video_track.frame_queue.qsize()
 
-                # Log occasionally to track frame flow
                 if self._received_frame_count % 90 == 0:
+                    qsize = self.video_track.frame_queue.qsize()
                     self.get_logger().info(
-                        f"Frame added to video track. Queue: {queue_size_before} -> {queue_size_after}. "
-                        f"Frame size: {height}x{width}x{channels}"
+                        f"Streaming frames. Queue size: {qsize}, "
+                        f"Frame: {height}x{width}"
                     )
             else:
                 if self._received_frame_count % 90 == 0:
                     self.get_logger().warn(
-                        "Received image but video_track is None, dropping frame"
+                        "Received image but video_track is None; not streaming yet"
                     )
-
         except Exception as e:
             self.get_logger().error(f"Error processing image: {e}")
+            self.get_logger().error(traceback.format_exc())
 
     def _register_socketio_handlers(self):
         """Register Socket.IO event handlers"""
