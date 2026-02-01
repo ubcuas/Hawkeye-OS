@@ -47,6 +47,7 @@ RUN apt-get update && apt-get install -y \
     ros-${ROS_DISTRO}-realsense2-camera-msgs \
     ros-${ROS_DISTRO}-cv-bridge \
     ros-${ROS_DISTRO}-image-transport \
+    ros-${ROS_DISTRO}-message-filters \
     && rm -rf /var/lib/apt/lists/*
 
 # Create workspace
