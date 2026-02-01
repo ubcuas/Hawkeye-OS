@@ -35,8 +35,16 @@ def generate_launch_description():
         name='image_processor',
         output='screen',
     )
+
+    streaming = Node(
+        package='streaming',
+        executable='streaming',
+        name='streaming',
+        output='screen',
+    )
     
     return LaunchDescription([
         realsense_launch,
         image_processor,
+        streaming,
     ])
