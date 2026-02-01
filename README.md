@@ -6,6 +6,7 @@ ros2_pubsub/
 ├── Dockerfile
 ├── README.md
 ├── docker-compose.yml
+├── test-hawkeye-os.sh
 └── src/
     ├── py_pubsub/
     │   ├── package.xml
@@ -27,7 +28,7 @@ ros2_pubsub/
 
 ## Getting Started 
 
-Install `docker, docker-compose`.
+Install `docker, docker-compose, tmux`.
 
 Build the image 
 ```bash
@@ -37,8 +38,6 @@ docker-compose build
 Run the container
 ```bash
 docker-compose up -d
-```
-```
 ```
 
 Get the bash (On each terminal to test)
@@ -62,6 +61,17 @@ For testing, mock queues are available
 ```bash
 ros2 run orchestrator mock_image_capture ("on one terminal")
 ros2 run orchestrator mock_object_detection ("on another terminal")
+```
+
+# Automating Build with Script
+
+To run the script, make sure you make it executable with:
+```bash
+chmod +x test-hawkeye-os.sh
+```
+Run the script:
+```bash
+./test-hawkeye-os.sh
 ```
 
 # Others 

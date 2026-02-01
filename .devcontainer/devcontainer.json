@@ -1,0 +1,49 @@
+{
+  "name": "Hawkeye ROS 2 Humble",
+
+  "dockerComposeFile": [
+    "../docker-compose.yml",
+    "../docker-compose.override.yml"
+  ],
+  "service": "ros2_workspace",
+  "workspaceFolder": "/ros2_ws",
+
+  "overrideCommand": true,
+
+  "remoteUser": "ros",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-iot.vscode-ros",
+        "ms-python.python",
+        "ms-vscode.cpptools",
+        "twxs.cmake"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/bin/python3",
+        "python.autoComplete.extraPaths": [
+          "/opt/ros/humble/local/lib/python3.10/dist-packages",
+          "/opt/ros/humble/lib/python3.10/site-packages",
+          "/ros2_ws/install/lib/python3.10/site-packages"
+        ],
+        "python.analysis.extraPaths": [
+          "/opt/ros/humble/local/lib/python3.10/dist-packages",
+          "/opt/ros/humble/lib/python3.10/site-packages",
+          "/ros2_ws/install/lib/python3.10/site-packages"
+        ],
+        "C_Cpp.default.includePath": [
+          "/opt/ros/humble/include/**",
+          "/ros2_ws/install/include/**"
+        ],
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+
+  "postCreateCommand": "sudo chown -R ros:ros /ros2_ws/build /ros2_ws/install 2>/dev/null || true && sudo apt-get update && rosdep update && sudo rosdep install --from-paths src --ignore-src -y && sudo /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh && colcon build --symlink-install",
+
+  "forwardPorts": [],
+
+  "runServices": ["ros2_workspace"]
+}
