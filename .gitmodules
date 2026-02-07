@@ -1,0 +1,3 @@
+[submodule "src/imaging"]
+	path = src/imaging
+	url = https://github.com/ubcuas/Camera-Feed-2023.git
