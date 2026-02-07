@@ -32,25 +32,11 @@ Manages peer connection establishment and data channel communication.
 
 
 class StreamingNode(Node):
-    def __init__(self, signaling_url: Optional[str] = None):
+    def __init__(self, signaling_url: str):
         super().__init__("streaming")
 
         # Configuration
         self.signaling_url = signaling_url
-
-        # Connection state
-        self.sio = socketio.AsyncClient(
-            logger=False,
-            engineio_logger=False,
-            reconnection=False,  # We'll handle reconnection manually
-        )
-        self.connected = False
-        self.peer_id: Optional[str] = None
-
-        # Retry configuration
-        self.max_retry_delay = 30.0  # Maximum delay between retries (seconds)
-        self.initial_retry_delay = 1.0  # Initial retry delay (seconds)
-        self.retry_backoff_factor = 2.0  # Exponential backoff multiplier
 
         # WebRTC state
         self.peer_connection = None
@@ -70,20 +56,23 @@ class StreamingNode(Node):
             ]
         )
 
-
         # Subscribe to video feed from object detection
         self.image_subscription = self.create_subscription(
             Image, "object_detection/image", self.video_track.put_image, 10
         )
 
         # Register Socket.IO event handlers
-        self.signaling_handler = SignalingHandler(self.get_logger(), self)
+        self.signaling_handler = SignalingHandler(
+            signaling_url=self.signaling_url, logger=self.get_logger(), node=self
+        )
         self.signaling_handler._register_socketio_handlers()
 
         self.get_logger().info("Streaming node initialized")
         self.get_logger().info(f"Signaling server URL: {self.signaling_url}")
         self.get_logger().info("Subscribed to: object_detection/image")
 
+    async def connect_to_signaling_server(self):
+        await self.signaling_handler.connect_to_signaling_server()
 
     async def _send_webrtc_offer(self):
         """Create peer connection, generate SDP offer, and send to peer via signaling server"""
@@ -92,8 +81,8 @@ class StreamingNode(Node):
             if self.peer_connection:
                 current_state = self.peer_connection.connectionState
                 self.get_logger().info(
-                    f"Peer connection already exists with state: {current_state}\n" + 
-                    "Closing old peer connection before creating new one"
+                    f"Peer connection already exists with state: {current_state}\n"
+                    + "Closing old peer connection before creating new one"
                 )
                 await self.peer_connection.close()
                 self.peer_connection = None
@@ -117,16 +106,12 @@ class StreamingNode(Node):
                     self.get_logger().info(
                         f"Sending ICE candidate: {candidate.candidate}"
                     )
-                    await self.sio.emit(
-                        "signal",
-                        {
-                            "to": self.peer_id,
-                            "type": "ice-candidate",
-                            "data": {
-                                "candidate": candidate.candidate,
-                                "sdpMid": candidate.sdpMid,
-                                "sdpMLineIndex": candidate.sdpMLineIndex,
-                            },
+                    await self.signaling_handler.emit_message(
+                        message_type="ice-candidate",
+                        data={
+                            "candidate": candidate.candidate,
+                            "sdpMid": candidate.sdpMid,
+                            "sdpMLineIndex": candidate.sdpMLineIndex,
                         },
                     )
 
@@ -177,15 +162,11 @@ class StreamingNode(Node):
             self.get_logger().info("Sending SDP offer to peer")
 
             # Send offer to peer via signaling server
-            await self.sio.emit(
-                "signal",
-                {
-                    "to": self.peer_id,
-                    "type": "offer",
-                    "data": {
-                        "sdp": pc.localDescription.sdp,
-                        "type": pc.localDescription.type,
-                    },
+            await self.signaling_handler.emit_message(
+                message_type="offer",
+                data={
+                    "sdp": pc.localDescription.sdp,
+                    "type": pc.localDescription.type,
                 },
             )
 
@@ -274,64 +255,12 @@ class StreamingNode(Node):
             self.get_logger().error(f"Error adding ICE candidate: {e}")
             self.get_logger().error(traceback.format_exc())
 
-    async def connect_to_signaling_server(self):
-        """
-        Connect to signaling server with exponential backoff retry logic.
-
-        This coroutine will continuously attempt to connect to the signaling
-        server, logging each attempt and backing off exponentially on failure.
-        """
-        retry_delay = self.initial_retry_delay
-        attempt = 0
-
-        while rclpy.ok():
-            attempt += 1
-
-            try:
-                self.get_logger().info(
-                    f"Attempting to connect to signaling server "
-                    f"(attempt {attempt}): {self.signaling_url}"
-                )
-
-                await self.sio.connect(self.signaling_url, transports=["websocket"])
-
-                # Connection successful
-                self.get_logger().info(
-                    f"Successfully connected to signaling server "
-                    f"after {attempt} attempt(s)"
-                )
-                retry_delay = self.initial_retry_delay  # Reset retry delay
-
-                # Wait for disconnection
-                await self.sio.wait()
-
-            except Exception as e:
-                # Log the main error
-                self.get_logger().error(f"Failed to connect to signaling server: {e}")
-
-                # Log the cause if available (this is where the real error often is)
-                if e.__cause__:
-                    self.get_logger().error(f"Caused by: {e.__cause__}")
-
-                # Log full traceback for debugging
-                self.get_logger().debug(f"Full traceback:\n{traceback.format_exc()}")
-
-                self.get_logger().info(f"Retrying in {retry_delay:.1f} seconds...")
-
-                # Wait before retrying
-                await asyncio.sleep(retry_delay)
-
-                # Exponential backoff
-                retry_delay = min(
-                    retry_delay * self.retry_backoff_factor, self.max_retry_delay
-                )
-
     async def shutdown(self):
         """Clean shutdown of the node"""
         self.get_logger().info("Shutting down streaming node...")
 
-        if self.sio.connected:
-            await self.sio.disconnect()
+        if self.signaling_handler.connected:
+            await self.signaling_handler.disconnect()
 
         # Close WebRTC connections
         if self.peer_connection:
