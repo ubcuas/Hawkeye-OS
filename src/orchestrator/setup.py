@@ -10,13 +10,11 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        ('share/' + package_name + '/launch', ['launch/mock_image_streaming_launch.py']),
     ],
     install_requires=[
         'setuptools',
         'websockets>=10.0',  # For GCOM communication
-        'python-socketio',
-        'opencv-python-headless',  # For reading test images
+        'opencv-python',  # For reading test images
         'aiortc',  # For WebRTC streaming
         'av',  # For video frames (required by aiortc)
     ],
