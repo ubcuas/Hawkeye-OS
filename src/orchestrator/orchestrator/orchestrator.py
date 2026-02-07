@@ -10,6 +10,7 @@ import paho.mqtt.client as mqtt
 MQTT_BROKER = "broker.hivemq.com" # Replace with your VPS IP for production
 MQTT_TOPIC_CMD = "ubc_uas/drone_01/commands"
 MQTT_TOPIC_STATUS = "ubc_uas/drone_01/status"
+MQTT_TOPIC_CMD_ACK = "ubc_uas/drone_01/command_ack"
 
 class Orchestrator(Node):
     def __init__(self,
@@ -90,6 +91,7 @@ class Orchestrator(Node):
         """
         Sends heartbeat/telemetry to GCOM.
         """
+
         status = {
             "status": "ONLINE",
             "queue_size": self.incoming_queue.qsize()
@@ -123,11 +125,21 @@ class Orchestrator(Node):
         
         # CASE 2: Message from GCOM (MQTT Dictionary)
         elif isinstance(msg, dict):
-             action = msg.get('action')
-             if action == "TAKE_PHOTO":
-                 self.get_logger().info("Executing GCOM Photo Request...")
-                 # Logic to trigger camera goes here
-                 pass
+            action = msg.get('action')
+            if action == "TAKE_PHOTO":
+                self.get_logger().info("Executing GCOM Photo Request...")
+                self.publish_ack(action, status="COMMAND_RECEIVED")
+                # Logic to trigger camera goes here
+                pass
+
+    def publish_ack(self, action, status, detail=None):
+        ack = {
+            "action": action,
+            "status": status,
+            "detail": detail
+        }
+        print("Publishing ACK to GCOM:", ack)
+        self.mqtt_client.publish(MQTT_TOPIC_CMD_ACK, json.dumps(ack))
 
     async def send_messages(self):
         """Producer Loop"""
