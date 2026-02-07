@@ -57,8 +57,9 @@ class StreamingNode(Node):
         )
 
         # Subscribe to video feed from object detection
+        # Use a routing method so we can swap tracks without recreating the subscription
         self.image_subscription = self.create_subscription(
-            Image, "object_detection/image", self.video_track.put_image, 10
+            Image, "object_detection/image", self._route_image_to_track, 10
         )
 
         # Register Socket.IO event handlers
@@ -70,6 +71,11 @@ class StreamingNode(Node):
         self.get_logger().info("Streaming node initialized")
         self.get_logger().info(f"Signaling server URL: {self.signaling_url}")
         self.get_logger().info("Subscribed to: object_detection/image")
+
+    def _route_image_to_track(self, msg: Image):
+        """Route incoming images to the current video track"""
+        if self.video_track:
+            self.video_track.put_image(msg)
 
     async def connect_to_signaling_server(self):
         await self.signaling_handler.connect_to_signaling_server()
@@ -87,9 +93,12 @@ class StreamingNode(Node):
                 await self.peer_connection.close()
                 self.peer_connection = None
                 self.data_channel = None
-                # ! maybe set video track to none - potentially dbuious change
 
             self.get_logger().info("Creating WebRTC peer connection")
+
+            # Create a new video track for this connection
+            # (tracks can't be reused after the peer connection closes)
+            self.video_track = ROSVideoStreamTrack(self.get_logger())
 
             # Create peer connection
             self.peer_connection = RTCPeerConnection(
