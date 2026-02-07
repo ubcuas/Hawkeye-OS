@@ -1,0 +1,5 @@
+websockets>=10.0
+opencv-python
+aiortc
+av
+paho-mqtt
