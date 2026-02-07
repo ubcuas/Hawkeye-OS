@@ -2,34 +2,43 @@
 
 ## Repository Structure 
 ```bash 
-ros2_pubsub/
+Hawkeye-OS/
+├── .dockerignore 
+├── .gitignore 
+├── docker-compose.yml 
 ├── Dockerfile
+├── mock_gcom.py 
 ├── README.md
-├── docker-compose.yml
+├── start_system.sh
+├── stop_system.sh 
+├── test-hawkeye-os.sh 
+├── received_stream/
 └── src/
-    ├── py_pubsub/
-    │   ├── package.xml
-    │   ├── setup.py
-    │   ├── setup.cfg
-    │   ├── resource/
-    │   │   └── py_pubsub
-    │   └── py_pubsub/
-    │       ├── __init__.py
-    │       ├── publisher.py
-    │       └── subscriber.py
-    └── cpp_pubsub/
+    └── orchestrator
         ├── package.xml
-        ├── CMakeLists.txt
-        └── src/
-            ├── publisher.cpp
-            └── subscriber.cpp
+        ├── setup.cfg
+        ├── setup.py
+        ├── orchestrator/
+            ├── __init__.py
+            ├── mock_object_detection.py
+            └── orchestrator.py 
+        └── resource/
+            └── orchestrator
+└── test_images
+    ├── anpanman_wooddadandan_hero.jpg
+    └── test_video.mp4
 ```
 
-## Getting Started 
+### Installing Dependencies 
+Install `docker, docker-compose, tmux`.
 
-Install `docker, docker-compose`.
+Install required Python Packages: 
+```bash
+pip install websockets aiortc av opencv-python numpy
+```
 
-Build the image 
+### Building the Image for the First Time (Manual)
+Build the image (in project root)
 ```bash
 docker-compose build
 ```
@@ -38,31 +47,49 @@ Run the container
 ```bash
 docker-compose up -d
 ```
-```
-```
 
 Get the bash (On each terminal to test)
 ```bash
 docker-compose exec ros2_workspace bash
 ```
 
-Inside the terminal, build the workplace 
+Inside the terminal, build the workplace
 ```bash
 colcon build
 ```
 
-# Orchestrator 
+### Testing (Manual) 
+Make sure you're in the project's root directory (../Hawkeye-OS)
 
-Inside the terminal, after the workspace is built, run the orchestrator
+In a Normal Terminal: 
+```bash 
+py mock_gcom.py
+```
+
+Inside the Docker Workspace (see previous section for setup): 
 ```bash 
 ros2 run orchestrator orchestrator
 ```
 
-For testing, mock queues are available
+For testing, mock queues are available 
 ```bash
-ros2 run orchestrator mock_image_capture ("on one terminal")
 ros2 run orchestrator mock_object_detection ("on another terminal")
 ```
 
-# Others 
-There are sample files called `py_pubsub, cpp_pubsub` which show basics of ROS. They'll be removed but feel free to browse for now.
+### Automated Build/Test
+For bash shells, there are files you can run to automate the test setups. 
+
+To run the script, make sure you make it executable with:
+```bash
+chmod +x start_system.sh stop_system.sh
+```
+
+Run the script (in project root):
+```bash
+./start_system.sh 
+```
+
+To stop the script: 
+```bash 
+./stop_system.sh 
+```
