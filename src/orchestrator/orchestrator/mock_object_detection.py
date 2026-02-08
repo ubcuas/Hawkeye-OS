@@ -15,7 +15,7 @@ import numpy as np
 
 class MockObjectDetection(Node):
     def __init__(self):
-        super().__init__('mock_object_detection')
+        super().__init__('mock_object_detection')   
         
         # Publisher for continuous video feed
         self.image_pub = self.create_publisher(Image, 'object_detection/image', 10)
@@ -86,10 +86,10 @@ class MockObjectDetection(Node):
             self.frame_count += 1
             
             # Log every 30 frames (once per second)
-            if self.frame_count % 30 == 0:
-                self.get_logger().info(
-                    f'Published frame {self.frame_count} ({width}x{height})'
-                )
+            # if self.frame_count % 30 == 0:
+            #     self.get_logger().info(
+            #         f'Published frame {self.frame_count} ({width}x{height})'
+            #     )
             
         except Exception as e:
             self.get_logger().error(f'Error processing video frame: {e}')

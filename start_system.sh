@@ -113,27 +113,50 @@ if command -v mintty &> /dev/null; then
     
     echo -e "${GREEN}✓ Git Bash windows opened${NC}"
 
-# Fallback to cmd.exe if mintty not available
+# Fallback if mintty not available
 else
-    echo "Using cmd.exe to open windows..."
-    
-    # Window 1: GCOM Server
-    echo "  → Starting GCOM server..."
-    cmd.exe /c start "GCOM Server" bash -c "cd '$WORKDIR' && echo '═══════════════════════════════════════════════════════════' && echo '  TERMINAL 1: GCOM Server (Host)' && echo '═══════════════════════════════════════════════════════════' && python mock_gcom.py; exec bash"
-    
-    sleep 2
-    
-    # Window 2: Object Detection
-    echo "  → Starting Object Detection..."
-    cmd.exe /c start "Object Detection" bash -c "cd '$WORKDIR' && echo '═══════════════════════════════════════════════════════════' && echo '  TERMINAL 2: Object Detection (Docker)' && echo '═══════════════════════════════════════════════════════════' && docker-compose exec ros2_workspace bash -c 'source /opt/ros/humble/setup.bash && source install/setup.bash && ros2 run orchestrator mock_object_detection'; exec bash"
-    
-    sleep 2
-    
-    # Window 3: Orchestrator
-    echo "  → Starting Orchestrator..."
-    cmd.exe /c start "Orchestrator" bash -c "cd '$WORKDIR' && echo '═══════════════════════════════════════════════════════════' && echo '  TERMINAL 3: Orchestrator (Docker)' && echo '═══════════════════════════════════════════════════════════' && docker-compose exec ros2_workspace bash -c 'source /opt/ros/humble/setup.bash && source install/setup.bash && ros2 run orchestrator orchestrator'; exec bash"
-    
-    echo -e "${GREEN}✓ Cmd windows opened${NC}"
+    # macOS: use Terminal.app via AppleScript
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+        echo "Using macOS Terminal to open windows..."
+
+        # Window 1: GCOM Server
+        echo "  → Starting GCOM server..."
+        osascript -e "tell application \"Terminal\" to activate" \
+                  -e "tell application \"Terminal\" to do script \"cd '$WORKDIR' && python mock_gcom.py\""
+        sleep 2
+
+        # Window 2: Object Detection
+        echo "  → Starting Object Detection..."
+        osascript -e "tell application \"Terminal\" to do script \"cd '$WORKDIR' && docker-compose exec ros2_workspace bash -lc 'source /opt/ros/humble/setup.bash && source install/setup.bash && ros2 run orchestrator mock_object_detection'\""
+        sleep 2
+
+        # Window 3: Orchestrator
+        echo "  → Starting Orchestrator..."
+        osascript -e "tell application \"Terminal\" to do script \"cd '$WORKDIR' && docker-compose exec ros2_workspace bash -lc 'source /opt/ros/humble/setup.bash && source install/setup.bash && ros2 run orchestrator orchestrator'\""
+
+        echo -e "${GREEN}✓ macOS Terminal windows opened${NC}"
+
+    else
+        echo "Using cmd.exe to open windows..."
+
+        # Window 1: GCOM Server
+        echo "  → Starting GCOM server..."
+        cmd.exe /c start "GCOM Server" bash -c "cd '$WORKDIR' && python mock_gcom.py; exec bash"
+
+        sleep 2
+
+        # Window 2: Object Detection
+        echo "  → Starting Object Detection..."
+        cmd.exe /c start "Object Detection" bash -c "cd '$WORKDIR' && docker-compose exec ros2_workspace bash -c 'source /opt/ros/humble/setup.bash && source install/setup.bash && ros2 run orchestrator mock_object_detection'; exec bash"
+
+        sleep 2
+
+        # Window 3: Orchestrator
+        echo "  → Starting Orchestrator..."
+        cmd.exe /c start "Orchestrator" bash -c "cd '$WORKDIR' && docker-compose exec ros2_workspace bash -c 'source /opt/ros/humble/setup.bash && source install/setup.bash && ros2 run orchestrator orchestrator'; exec bash"
+
+        echo -e "${GREEN}✓ Cmd windows opened${NC}"
+    fi
 fi
 
 echo ""

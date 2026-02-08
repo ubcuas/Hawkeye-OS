@@ -22,6 +22,8 @@ RUN groupadd --gid $USER_GID $USERNAME \
 RUN apt-get update && apt-get install -y \
     python3-pip \
     python3-colcon-common-extensions \
+    libgl1 \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install development tools
@@ -37,6 +39,8 @@ RUN apt-get update && apt-get install -y \
 # Create workspace
 RUN mkdir -p /ros2_ws/src
 WORKDIR /ros2_ws
+
+COPY ./setup_env.sh /ros2_ws/setup_env.sh
 
 # Install Python packages
 COPY requirements.txt /tmp/requirements.txt
