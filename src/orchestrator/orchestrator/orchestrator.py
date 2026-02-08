@@ -1,9 +1,11 @@
 import asyncio
 import json
+import os
 import rclpy
 from rclpy.node import Node
 from rclpy.executors import SingleThreadedExecutor 
 from std_msgs.msg import String
+from sensor_msgs.msg import Image
 import paho.mqtt.client as mqtt
 
 # MQTT Configuration (GCOM Connection)
@@ -12,27 +14,33 @@ MQTT_TOPIC_CMD = "ubc_uas/drone_01/commands"
 MQTT_TOPIC_STATUS = "ubc_uas/drone_01/status"
 MQTT_TOPIC_CMD_ACK = "ubc_uas/drone_01/command_ack"
 
+"""
+Orchestrator node
+
+Coordinates image capture requests and object detection results.
+"""
+
+
 class Orchestrator(Node):
     def __init__(self,
                 loop,
-                input_topic='object_detection',
-                output_topic='image_capture', 
-                input_msg_type=String,
-                output_msg_type=String): 
+                object_detection_topic=None,
+                image_request_topic=None):
         
         super().__init__("orchestrator") 
 
+        # Load from environment variables
+        self.object_detection_topic = object_detection_topic or os.getenv('OBJECT_DETECTION_TOPIC')
+        self.image_request_topic = image_request_topic or os.getenv('IMAGE_REQUEST_TOPIC')
+
         self.loop = loop
 
-        self.incoming_queue = asyncio.Queue()
+        self.image_queue = asyncio.Queue()
         self.outgoing_queue = asyncio.Queue()
 
-        self.input_msg_type = input_msg_type
-        self.output_msg_type = output_msg_type
-
-        # --- ROS Communication ---
-        self.image_request_pub = self.create_publisher(output_msg_type, output_topic, 10) 
-        self.object_detect_sub = self.create_subscription(input_msg_type, input_topic, self.ros_callback, 10)
+        # ROS publishers and subscribers
+        self.image_request_pub = self.create_publisher(String, self.image_request_topic, 10)
+        self.object_detection_sub = self.create_subscription(Image, self.object_detection_topic, self.image_callback, 10)
 
         # --- MQTT Communication (GCOM Link) ---
         self.mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, "Drone_Orchestrator")
@@ -51,8 +59,8 @@ class Orchestrator(Node):
         self.status_timer = self.create_timer(1.0, self.publish_status_to_ground)
 
         self.get_logger().info('Orchestrator node started')
-        self.get_logger().info(f'Listening on: {input_topic}')
-        self.get_logger().info(f'Publishing on: {output_topic}')
+        self.get_logger().info(f'Subscribing to: {self.object_detection_topic}')
+        self.get_logger().info(f'Publishing to: {self.image_request_topic}')
 
     # --- MQTT Callbacks ---
     def on_mqtt_connect(self, client, userdata, flags, rc, properties):
@@ -80,7 +88,7 @@ class Orchestrator(Node):
             # Example: GCOM says "TAKE_PHOTO" -> We push it to the queue for processing
             if command:
                 asyncio.run_coroutine_threadsafe(
-                    self.incoming_queue.put(payload), 
+                    self.image_queue.put(payload), 
                     self.loop
                 )
 
@@ -94,24 +102,35 @@ class Orchestrator(Node):
 
         status = {
             "status": "ONLINE",
-            "queue_size": self.incoming_queue.qsize()
+            "queue_size": self.image_queue.qsize()
             # Add battery or GPS info here later
         }
         self.mqtt_client.publish(MQTT_TOPIC_STATUS, json.dumps(status))
 
     # --- Existing ROS/Async Logic ---
+    def image_callback(self, msg):
+        """Callback when receiving images from object detection"""
+        asyncio.run_coroutine_threadsafe(
+            self.image_queue.put(msg),
+            self.loop
+        )
+        self.get_logger().info('IMAGE CALLBACK: Added to queue')
+
+
     def ros_callback(self, msg):
         self.get_logger().info(f'Received ROS message: {msg.data if hasattr(msg, "data") else str(msg)}')
         asyncio.run_coroutine_threadsafe(
-            self.incoming_queue.put(msg),
+            self.image_queue.put(msg),
             self.loop
         )
  
-    async def process_messages(self):
-        """Consumer Loop"""
+    async def process_images(self):
+        """Process images from object detection"""
         while rclpy.ok():
-            msg = await self.incoming_queue.get()
-            await self.handle_request(msg)
+            self.get_logger().info('PROCESS: Waiting for image from queue...')
+            img_msg = await self.image_queue.get()
+            self.get_logger().info('PROCESS: Got image')
+            # TODO: Add image processing logic here
 
     async def handle_request(self, msg):
         """Logic Router"""
@@ -165,7 +184,7 @@ async def async_main(args=None):
     try:
         await asyncio.gather(
             spin(),
-            orchestrator.process_messages(),
+            orchestrator.process_images(),
             orchestrator.send_messages()
         )
     except KeyboardInterrupt:
