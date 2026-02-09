@@ -22,6 +22,8 @@ RUN groupadd --gid $USER_GID $USERNAME \
 RUN apt-get update && apt-get install -y \
     python3-pip \
     python3-colcon-common-extensions \
+    libgl1 \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install development tools
@@ -40,8 +42,9 @@ WORKDIR /ros2_ws
 
 COPY ./setup_env.sh /ros2_ws/setup_env.sh
 
-# Install Python packages for WebRTC
-RUN pip3 install aiortc av opencv-python-headless websockets numpy python-socketio aiohttp
+# Install Python packages
+COPY requirements.txt /tmp/requirements.txt
+RUN pip3 install -r /tmp/requirements.txt
 
 # Configure ROS environment for new user
 RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /home/$USERNAME/.bashrc \
