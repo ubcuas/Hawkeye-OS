@@ -64,28 +64,28 @@ class ImageProcessor(Node):
     def image_callback(self, msg):
         """Process image and attach latest GPS/IMU data."""
         # Check if we have GPS data yet
-        if self.latest_gps is None:
-            self.get_logger().warn('No GPS data available yet, skipping image', throttle_duration_sec=5.0)
-            return
+        #if self.latest_gps is None:
+        #    self.get_logger().warn('No GPS data available yet, skipping image', throttle_duration_sec=5.0)
+        #    return
         
         # Get timestamps for synchronization check
-        image_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
-        gps_time = self.latest_gps.header.stamp.sec + self.latest_gps.header.stamp.nanosec * 1e-9
-        time_diff = abs(image_time - gps_time)
+        # image_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+        # gps_time = self.latest_gps.header.stamp.sec + self.latest_gps.header.stamp.nanosec * 1e-9
+        # time_diff = abs(image_time - gps_time)
         
-        # Warn if GPS data is too old (more than 1 second)
-        if time_diff > 1.0:
-            self.get_logger().warn(f'GPS data is {time_diff:.2f}s old - may be stale')
+        # # Warn if GPS data is too old (more than 1 second)
+        # if time_diff > 1.0:
+        #     self.get_logger().warn(f'GPS data is {time_diff:.2f}s old - may be stale')
         
-        # Log synchronized data
-        self.get_logger().info(
-            f'Image captured at ({self.latest_gps.latitude:.6f}, {self.latest_gps.longitude:.6f}, {self.latest_gps.altitude:.2f}m) '
-            f'time_diff={time_diff*1000:.1f}ms'
-        )
+        # # Log synchronized data
+        # self.get_logger().info(
+        #     f'Image captured at ({self.latest_gps.latitude:.6f}, {self.latest_gps.longitude:.6f}, {self.latest_gps.altitude:.2f}m) '
+        #     f'time_diff={time_diff*1000:.1f}ms'
+        # )
 
         try:
             cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
-            self.get_logger().info(f"Received image of size: {cv_image.shape}")
+            # self.get_logger().info(f"Received image of size: {cv_image.shape}")
             cv2.imwrite('debug_photo.jpg', cv_image)
 
             output_msg = self.bridge.cv2_to_imgmsg(cv_image, "bgr8")
