@@ -53,7 +53,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Create workspace
-RUN mkdir -p /ros2_ws/src
+RUN mkdir -p /ros2_ws/src /ros2_ws/build /ros2_ws/install 
 WORKDIR /ros2_ws
 
 COPY ./setup_env.sh /ros2_ws/setup_env.sh
@@ -61,16 +61,6 @@ COPY ./setup_env.sh /ros2_ws/setup_env.sh
 # Install Python packages
 COPY requirements.txt /tmp/requirements.txt
 RUN pip3 install -r /tmp/requirements.txt
-
-# Configure ROS environment for new user
-RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /home/$USERNAME/.bashrc \
-    && echo "if [ -f /ros2_ws/install/setup.bash ]; then source /ros2_ws/install/setup.bash; fi" >> /home/$USERNAME/.bashrc
-
-# Set workspace ownership
-RUN chown -R $USERNAME:$USERNAME /ros2_ws
-
-# Switch to non-root user
-USER $USERNAME
 
 # Configure ROS environment for new user
 RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /home/$USERNAME/.bashrc \
