@@ -1,5 +1,9 @@
 websockets>=10.0
-opencv-python
 aiortc
 av
 paho-mqtt
+opencv-python-headless 
+websockets 
+numpy<2
+python-socketio 
+aiohttp

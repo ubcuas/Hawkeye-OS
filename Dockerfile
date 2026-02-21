@@ -11,10 +11,11 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV ROS_DISTRO=humble
 
 # Create non-root user with sudo
-RUN groupadd --gid $USER_GID $USERNAME \
+RUN apt-get clean && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid $USER_GID $USERNAME \
     && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
-    && apt-get update \
-    && apt-get install -y sudo \
+    && apt-get update -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true \
+    && apt-get install -y --allow-unauthenticated sudo \
     && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME
 
@@ -36,8 +37,23 @@ RUN apt-get update && apt-get install -y \
     gdb \
     && rm -rf /var/lib/apt/lists/*
 
+RUN apt-get update && apt-get install -y \
+    ros-${ROS_DISTRO}-mavros \
+    ros-${ROS_DISTRO}-mavros-extras \
+    && /opt/ros/${ROS_DISTRO}/lib/mavros/install_geographiclib_datasets.sh \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Intel RealSense ROS2 wrapper and related dependencies
+RUN apt-get update && apt-get install -y \
+    ros-${ROS_DISTRO}-realsense2-camera \
+    ros-${ROS_DISTRO}-realsense2-camera-msgs \
+    ros-${ROS_DISTRO}-cv-bridge \
+    ros-${ROS_DISTRO}-image-transport \
+    ros-${ROS_DISTRO}-message-filters \
+    && rm -rf /var/lib/apt/lists/*
+
 # Create workspace
-RUN mkdir -p /ros2_ws/src
+RUN mkdir -p /ros2_ws/src /ros2_ws/build /ros2_ws/install 
 WORKDIR /ros2_ws
 
 COPY ./setup_env.sh /ros2_ws/setup_env.sh
