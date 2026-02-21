@@ -1,8 +1,0 @@
-services:
-  ros2_workspace:
-    volumes:
-      # Mount entire repo root as the ROS2 workspace
-      - .:/ros2_ws
-      # Keep named volumes for build/install performance (these override the bind mount for these specific dirs)
-      - ros2_ws_build:/ros2_ws/build
-      - ros2_ws_install:/ros2_ws/install
