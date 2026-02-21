@@ -32,6 +32,7 @@ Hawkeye-OS/
 ### Installing Dependencies 
 Install `docker, docker-compose, tmux`.
 
+// I think we can ignore this since we have the requirements.txt
 Install required Python Packages: 
 ```bash
 pip install websockets aiortc av opencv-python numpy
