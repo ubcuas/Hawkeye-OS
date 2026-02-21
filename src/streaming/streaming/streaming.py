@@ -1,9 +1,7 @@
 import asyncio
-import json
 import os
 import traceback
 from typing import Optional
-
 import rclpy
 from rclpy.node import Node
 from rclpy.executors import SingleThreadedExecutor
@@ -21,10 +19,8 @@ from aiortc.mediastreams import VideoStreamTrack
 from av import VideoFrame
 import numpy as np
 from sensor_msgs.msg import Image
-from std_msgs.msg import String
 
 from streaming.constants import WEBRTC_SIGNALING_URL
-from streaming.detection_data import DetectionData
 
 """
 Streaming Node
@@ -132,13 +128,8 @@ class StreamingNode(Node):
             Image, "object_detection/image", self._image_callback, 10
         )
 
-        # Subscribe to detection metadata for sending via data channel
-        self.detection_subscription = self.create_subscription(
-            String, "object_detection/metadata", self._detection_callback, 10
-        )
-
-        # Store event loop for async callbacks
-        self.loop = asyncio.get_event_loop()
+        # Register Socket.IO event handlers
+        self._register_socketio_handlers()
 
         self.get_logger().info("Streaming node initialized")
         self.get_logger().info(f"Signaling server URL: {self.signaling_url}")
@@ -200,49 +191,6 @@ class StreamingNode(Node):
         except Exception as e:
             self.get_logger().error(f"Error processing image: {e}")
             self.get_logger().error(traceback.format_exc())
-
-    def _detection_callback(self, msg: String):
-        """
-        Handle detection metadata and send via data channel.
-
-        Parses JSON from String message, converts to DetectionData dataclass,
-        and sends it through the WebRTC data channel.
-        """
-        try:
-            # Parse JSON and convert to dataclass
-            data = json.loads(msg.data)
-            detection_data = DetectionData.from_dict(data)
-
-            # Send via WebRTC data channel
-            asyncio.run_coroutine_threadsafe(
-                self.send_detection_data(detection_data),
-                self.loop
-            )
-        except Exception as e:
-            self.get_logger().error(f"Error in detection callback: {e}")
-
-    async def send_detection_data(self, detection_data: DetectionData):
-        """
-        Send object detection data through WebRTC data channel.
-        
-        Args:
-            detection_data: DetectionData object containing image, color,
-                           bounding boxes, and confidence level
-        """
-        if self.data_channel and self.data_channel.readyState == "open":
-            # Convert to JSON for transmission
-            json_payload = detection_data.to_json()
-            self.data_channel.send(json_payload)
-            self.get_logger().debug(
-                f"Sent detection data: {detection_data.color_detection}, "
-                f"boxes: {len(detection_data.bounding_boxes)}, "
-                f"confidence: {detection_data.confidence_level}"
-            )
-        else:
-            self.get_logger().warn(
-                f"Data channel not ready (state: {self.data_channel.readyState if self.data_channel else 'None'}), "
-                "cannot send detection data"
-            )
 
     def _register_socketio_handlers(self):
         """Register Socket.IO event handlers"""
