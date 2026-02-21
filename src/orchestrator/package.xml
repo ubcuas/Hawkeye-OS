@@ -7,9 +7,14 @@
   <maintainer email="your_email@example.com">Your Name</maintainer>
   <license>Apache-2.0</license>
 
+  <!-- General Dependencies -->
   <depend>rclpy</depend>
   <depend>std_msgs</depend>
 
+  <!-- Runtime Dependencies -->
+  <!-- <exec_depend> smth </exec_depend> -->
+
+  <!-- Testtime Dependencies -->
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>

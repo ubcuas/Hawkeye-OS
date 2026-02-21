@@ -1,6 +1,19 @@
 from setuptools import setup
+import os
 
 package_name = 'orchestrator'
+
+def parse_requirements(filename):
+    requirements = []
+    if os.path.exists(filename):
+        with open(filename, 'r') as f:
+                requirements = [line.strip() for line in f
+                                if line.strip() and not line.startswith('#')]
+                
+    return requirements
+
+here = os.path.abspath(os.path.dirname(__file__))
+requirements_path = os.path.join(here, '../../requirements.txt')
 
 setup(
     name=package_name,
@@ -12,14 +25,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', ['launch/mock_image_streaming_launch.py']),
     ],
-    install_requires=[
-        'setuptools',
-        'websockets>=10.0',  # For GCOM communication
-        'python-socketio',
-        'opencv-python-headless',  # For reading test images
-        'aiortc',  # For WebRTC streaming
-        'av',  # For video frames (required by aiortc)
-    ],
+    install_requires=['setuptools'] + parse_requirements(requirements_path),
     zip_safe=True,
     maintainer='Your Name',
     maintainer_email='your_email@example.com',

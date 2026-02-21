@@ -2,9 +2,8 @@
 
 src/orchestrator/orchestrator/__pycache__
 received_stream
+.vscode
 
 log/
 install/
 build/
-
-.vscode/settings.json
