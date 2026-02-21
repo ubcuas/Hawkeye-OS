@@ -23,7 +23,7 @@ services:
 
       # Orchestrator configuration
       # This is only for LOCAL DEVELOPMENT where the signaling server is running on the host machine - in prod this should be set to the actual remote signaling server URL
-      - WEBRTC_SIGNALING_URL=ws://host.docker.internal:8081
+      - WEBRTC_SIGNALING_URL=ws://kai-subclavian-constrictedly.ngrok-free.dev
       # Topics
       - OBJECT_DETECTION_TOPIC=object_detection/image
       - IMAGE_REQUEST_TOPIC=image_request
