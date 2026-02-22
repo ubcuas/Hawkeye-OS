@@ -36,6 +36,7 @@ setup(
         'console_scripts': [
             'orchestrator = orchestrator.orchestrator:main',
             'mock_object_detection = orchestrator.mock_object_detection:main',
+            'mock_tagged_image = orchestrator.mock_tagged_image:main',
         ],
     },
 )
