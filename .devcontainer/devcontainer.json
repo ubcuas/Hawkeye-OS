@@ -26,12 +26,18 @@
         "python.autoComplete.extraPaths": [
           "/opt/ros/humble/local/lib/python3.10/dist-packages",
           "/opt/ros/humble/lib/python3.10/site-packages",
-          "/ros2_ws/install/lib/python3.10/site-packages"
+          "/ros2_ws/install/hawkeye_msgs/local/lib/python3.10/dist-packages",
+          "/ros2_ws/install/imaging_realsense/lib/python3.10/site-packages",
+          "/ros2_ws/install/orchestrator/lib/python3.10/site-packages",
+          "/ros2_ws/install/streaming/lib/python3.10/site-packages"
         ],
         "python.analysis.extraPaths": [
           "/opt/ros/humble/local/lib/python3.10/dist-packages",
           "/opt/ros/humble/lib/python3.10/site-packages",
-          "/ros2_ws/install/lib/python3.10/site-packages"
+          "/ros2_ws/install/hawkeye_msgs/local/lib/python3.10/dist-packages",
+          "/ros2_ws/install/imaging_realsense/lib/python3.10/site-packages",
+          "/ros2_ws/install/orchestrator/lib/python3.10/site-packages",
+          "/ros2_ws/install/streaming/lib/python3.10/site-packages"
         ],
         "C_Cpp.default.includePath": [
           "/opt/ros/humble/include/**",
