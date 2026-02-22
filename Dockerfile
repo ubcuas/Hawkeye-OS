@@ -1,4 +1,3 @@
-ARG TARGETARCH
 FROM ros:humble
 
 # Build arguments for user configuration
