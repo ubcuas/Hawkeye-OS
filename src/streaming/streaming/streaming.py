@@ -1,28 +1,22 @@
 import asyncio
 import base64
 import json
-import os
 import traceback
-from typing import Optional
-import rclpy
-from rclpy.node import Node
-from rclpy.executors import SingleThreadedExecutor
-import socketio
 import cv2
+import numpy as np
+import rclpy
 from aiortc import (
-    RTCPeerConnection,
-    RTCSessionDescription,
-    RTCIceCandidate,
     RTCConfiguration,
     RTCIceServer,
+    RTCPeerConnection,
+    RTCSessionDescription,
 )
 from aiortc.sdp import candidate_from_sdp
-from aiortc.mediastreams import VideoStreamTrack
-from av import VideoFrame
-import numpy as np
+from rclpy.executors import SingleThreadedExecutor
+from rclpy.node import Node
 from sensor_msgs.msg import Image
-from hawkeye_msgs.msg import TaggedImage
 
+from hawkeye_msgs.msg import TaggedImage
 from streaming.constants import WEBRTC_SIGNALING_URL
 from streaming.signaling_handler import SignalingHandler
 from streaming.video_track import ROSVideoStreamTrack
@@ -98,7 +92,7 @@ class StreamingNode(Node):
             (img.height, img.width, channels)
         )
         _, jpeg_bytes = cv2.imencode(".jpg", frame)
-        image_b64 = base64.b64encode(jpeg_bytes).decode("utf-8")
+        image_b64 = base64.b64encode(jpeg_bytes.tobytes()).decode("utf-8")
 
         payload = json.dumps(
             {
