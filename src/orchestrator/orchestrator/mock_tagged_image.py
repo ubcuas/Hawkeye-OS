@@ -79,10 +79,10 @@ class MockTaggedImagePublisher(Node):
         ]
 
         self.pub.publish(msg)
-        self.get_logger().info(
-            f"Published TaggedImage — color=({r},{g},{b}) "
-            f"vertices={len(msg.bounding_box)} confidence={msg.confidence_level}"
-        )
+        # self.get_logger().info(
+        #     f"Published TaggedImage — color=({r},{g},{b}) "
+        #     f"vertices={len(msg.bounding_box)} confidence={msg.confidence_level}"
+        # )
 
 
 def main(args=None):
