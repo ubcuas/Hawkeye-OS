@@ -96,12 +96,10 @@ class StreamingNode(Node):
 
         payload = json.dumps(
             {
-                "image": image_b64,
-                "metadata": {
-                    "color_detection": [msg.color_r, msg.color_g, msg.color_b],
-                    "bounding_box": [[pt.x, pt.y] for pt in msg.bounding_box],
-                    "confidence_level": msg.confidence_level,
-                },
+                "image_data": image_b64,
+                "color_detection": [msg.color_r, msg.color_g, msg.color_b],
+                "bounding_box": [[pt.x, pt.y] for pt in msg.bounding_box],
+                "confidence_level": msg.confidence_level,
             }
         )
         self.data_channel.send(payload)
