@@ -10,6 +10,7 @@ from rclpy.qos import (
 )
 from geometry_msgs.msg import PoseStamped
 from mavros_msgs.msg import State
+from mavros_msgs.srv import CommandLong
 import threading
 import time
 import math
@@ -85,7 +86,9 @@ class ArduPilotNode(Node):
             PoseStamped, "/mavros/setpoint_position/local", qos_reliable
         )
 
-        # Water Servo Subcriber
+        # Water Servo Subcriber and Servo Client
+        self.servo_client = self.create_client(CommandLong, "/mavros/cmd/command")
+
         self.cmd_set_servo_water = self.create_subscription(
             PoseStamped,
             "/drone/set_servo",
@@ -328,6 +331,44 @@ class ArduPilotNode(Node):
 
         return
 
+    def command_set_servo_water_cb(self, msg: PoseStamped):
+        """
+        Callback to set a servo value via MAVROS.
+        We interpret:
+          msg.pose.position.x as the Servo Number (e.g. 9 for AUX1)
+          msg.pose.position.y as the PWM value (e.g. 1000-2000)
+        """
+        if not self.servo_client.service_is_ready():
+            self.get_logger().error("Servo service not available!")
+            return
+
+        servo_num = int(msg.pose.position.x)
+        pwm_value = float(msg.pose.position.y)
+
+        req = CommandLong.Request()
+        req.broadcast = False
+        req.command = 183
+        req.confirmation = 0
+        req.param1 = float(servo_num)
+        req.param2 = pwm_value
+
+        self.get_logger().info(f"Setting servo {servo_num} to PWM {pwm_value}")
+
+        future = self.servo_client.call_async(req)
+        future.add_done_callback(self.servo_response_cb)
+
+    def servo_response_cb(self, future):
+        try:
+            response = future.result()
+            if response.success:
+                self.get_logger().info("Servo command successful")
+            else:
+                self.get_logger().error(
+                    f"Servo command failed, result: {response.result}"
+                )
+        except Exception as e:
+            self.get_logger().error(f"Service call failed: {str(e)}")
+
 
 def main():
     rclpy.init()
@@ -359,4 +400,3 @@ def main():
     finally:
         node.destroy_node()
         rclpy.shutdown()
-
