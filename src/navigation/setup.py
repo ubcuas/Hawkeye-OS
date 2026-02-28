@@ -24,8 +24,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            # 'command_name = package_folder.file_name:function_name'o
             'navigation = navigation.navigation:main',
+            'test_servo = navigation.test_servo:test_servo',
         ],
     },
 )
