@@ -1,112 +1,118 @@
 #!/usr/bin/env python3
 
-#!/usr/bin/env python3
-
 import rclpy
+import message_filters
 from rclpy.node import Node
 from rclpy.qos import QoSPresetProfiles
-from sensor_msgs.msg import CompressedImage, Imu, Image
+from sensor_msgs.msg import CompressedImage, Imu
 from sensor_msgs.msg import NavSatFix
-from std_msgs.msg import String
-from cv_bridge import CvBridge
-import cv2
+from hawkeye_msgs.msg import TaggedImage
+
+"""
+ImageProcessor node
+
+Subscribes to compressed color and depth image topics published by the
+RealSense camera, synchronizes them by timestamp using
+ApproximateTimeSynchronizer, and re-publishes them together as a single
+TaggedImage message for downstream consumers (e.g. object_detection).
+"""
+
+COLOR_TOPIC = "/color/image_raw/compressed"
+DEPTH_TOPIC = "/depth/image_rect_raw/compressed"
+IMU_TOPIC   = "/camera/camera/imu"
+GPS_TOPIC   = "/gps/fix"
+OUTPUT_TOPIC = "/image_processor/tagged_image"
+
+# ApproximateTimeSynchronizer settings
+SYNC_QUEUE_SIZE = 10
+SYNC_SLOP = 0.1  # Max time difference (seconds) between matched frames
+
 
 class ImageProcessor(Node):
-    
+
     def __init__(self):
         super().__init__('image_processor')
-        self.bridge = CvBridge()
 
-        # Subscribe to RealSense raw image with SensorData QoS
-        
-        # Cache for latest GPS and IMU data
+        sensor_qos = QoSPresetProfiles.SENSOR_DATA.value
+
+        # Cache for optional metadata
         self.latest_gps = None
         self.latest_imu = None
-        self.gps_lock = None  # Will store threading.Lock() if needed
-        
-        # Subscribe to official RealSense compressed image topic
-        self.image_subscription = self.create_subscription(
-            Image,
-            '/camera/camera/color/image_raw',
-            self.image_callback,
-            qos_profile=QoSPresetProfiles.SENSOR_DATA.value,
+
+        # message_filters subscribers for camera streams
+        self.color_sub = message_filters.Subscriber(
+            self, CompressedImage, COLOR_TOPIC, qos_profile=sensor_qos
         )
-        
+        self.depth_sub = message_filters.Subscriber(
+            self, CompressedImage, DEPTH_TOPIC, qos_profile=sensor_qos
+        )
+
+        # Optional metadata subscriptions (regular, non-synchronized)
         self.imu_subscription = self.create_subscription(
             Imu,
-            '/camera/camera/imu',
+            IMU_TOPIC,
             self.imu_callback,
-            qos_profile=QoSPresetProfiles.SENSOR_DATA.value,
+            qos_profile=sensor_qos,
         )
-        
+
         self.gps_subscription = self.create_subscription(
             NavSatFix,
-            '/gps/fix',
+            GPS_TOPIC,
             self.gps_callback,
-            10
-        )
-        
-        self.image_publisher = self.create_publisher(
-            Image,
-            'object_detection/image',
-            10
+            10,
         )
 
-        self.detection_publisher = self.create_publisher(
-            String,
-            '/detections',
-            10
+        # Synchronize color + depth frames by approximate timestamp
+        self.sync = message_filters.ApproximateTimeSynchronizer(
+            [self.color_sub, self.depth_sub],
+            queue_size=SYNC_QUEUE_SIZE,
+            slop=SYNC_SLOP,
         )
-        
-        self.get_logger().info('ImageProcessor initialized - waiting for GPS and camera data...')
-    
+        self.sync.registerCallback(self.synchronized_callback)
 
-    def image_callback(self, msg):
-        """Process image and attach latest GPS/IMU data."""
-        # Check if we have GPS data yet
-        #if self.latest_gps is None:
-        #    self.get_logger().warn('No GPS data available yet, skipping image', throttle_duration_sec=5.0)
-        #    return
-        
-        # Get timestamps for synchronization check
-        # image_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
-        # gps_time = self.latest_gps.header.stamp.sec + self.latest_gps.header.stamp.nanosec * 1e-9
-        # time_diff = abs(image_time - gps_time)
-        
-        # # Warn if GPS data is too old (more than 1 second)
-        # if time_diff > 1.0:
-        #     self.get_logger().warn(f'GPS data is {time_diff:.2f}s old - may be stale')
-        
-        # # Log synchronized data
-        # self.get_logger().info(
-        #     f'Image captured at ({self.latest_gps.latitude:.6f}, {self.latest_gps.longitude:.6f}, {self.latest_gps.altitude:.2f}m) '
-        #     f'time_diff={time_diff*1000:.1f}ms'
-        # )
+        # Publisher for the combined TaggedImage
+        self.tagged_image_pub = self.create_publisher(
+            TaggedImage,
+            OUTPUT_TOPIC,
+            10,
+        )
 
-        try:
-            cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
-            # self.get_logger().info(f"Received image of size: {cv_image.shape}")
-            cv2.imwrite('debug_photo.jpg', cv_image)
+        self.get_logger().info('ImageProcessor node started')
+        self.get_logger().info(f'Subscribed to color: {COLOR_TOPIC}')
+        self.get_logger().info(f'Subscribed to depth: {DEPTH_TOPIC}')
+        self.get_logger().info(f'Publishing TaggedImage to: {OUTPUT_TOPIC}')
+        self.get_logger().info(f'Sync slop: {SYNC_SLOP}s')
 
-            output_msg = self.bridge.cv2_to_imgmsg(cv_image, "bgr8")
-            output_msg.header = msg.header
-            self.image_publisher.publish(output_msg)
-        except Exception as e:
-            self.get_logger().error(f'Conversion failed: {e}')
-        
+    def synchronized_callback(self, color_msg: CompressedImage, depth_msg: CompressedImage):
+        """Called when a matching color+depth pair arrives within the slop window."""
+        self.get_logger().info(
+            f'SYNC: Matched pair — color: {color_msg.header.stamp}, '
+            f'depth: {depth_msg.header.stamp}'
+        )
 
+        tagged = TaggedImage()
+        tagged.image_data = color_msg
+        tagged.depth_data = depth_msg
 
-    
-    def imu_callback(self, msg):
+        if self.latest_imu is not None:
+            tagged.imu_data = self.latest_imu
+
+        if self.latest_gps is not None:
+            tagged.gps_data = self.latest_gps
+
+        self.tagged_image_pub.publish(tagged)
+        self.get_logger().debug('Published TaggedImage')
+
+    def imu_callback(self, msg: Imu):
         """Cache latest IMU data."""
         self.latest_imu = msg
-    
-    def gps_callback(self, msg):
+
+    def gps_callback(self, msg: NavSatFix):
         """Cache latest GPS data."""
         self.latest_gps = msg
         self.get_logger().debug(
             f'GPS updated: ({msg.latitude:.6f}, {msg.longitude:.6f}, {msg.altitude:.2f}m)',
-            throttle_duration_sec=1.0
+            throttle_duration_sec=1.0,
         )
 
 
