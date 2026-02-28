@@ -1,26 +1,22 @@
 import asyncio
 import os
 import rclpy
-import message_filters
 from rclpy.node import Node
 from rclpy.executors import SingleThreadedExecutor
-from sensor_msgs.msg import CompressedImage
+from hawkeye_msgs.msg import TaggedImage
 from object_detection.yolo_detection import predict_images
 
 """
 Object Detection node
 
-Subscribes to depth and color image topics. Uses ApproximateTimeSynchronizer
-to pair frames from both channels by timestamp before running YOLO detection.
+Subscribes to the TaggedImage topic published by image_processor.
+Each message already contains synchronized color + depth data.
+YOLO detection runs on the color frame and results are re-published
+as an annotated TaggedImage.
 """
 
-DEPTH_TOPIC = "/depth/image_rect_raw/compressed"
-COLOR_TOPIC = "/color/image_raw/compressed"
-PROCESSED_TOPIC = "/object_detection/image"
-
-# ApproximateTimeSynchronizer settings
-SYNC_QUEUE_SIZE = 10
-SYNC_SLOP = 0.1  # Max time difference (seconds) between matched frames
+TAGGED_IMAGE_TOPIC = "/image_processor/tagged_image"
+PROCESSED_TOPIC = "/object_detection/tagged_image"
 
 
 class ObjectDetection(Node):
@@ -28,55 +24,63 @@ class ObjectDetection(Node):
 
         super().__init__("object_detection")
 
-        # Async queue — synchronized pairs are enqueued here
-        self.image_pair_queue = asyncio.Queue()
+        # Async queue — incoming TaggedImage messages are enqueued here
+        self.image_queue = asyncio.Queue()
 
-        # message_filters subscribers
-        self.depth_sub = message_filters.Subscriber(self, CompressedImage, DEPTH_TOPIC)
-        self.color_sub = message_filters.Subscriber(self, CompressedImage, COLOR_TOPIC)
-
-        # publisher for combined image data
-        self.process_pub =  self.create_publisher(
-            Image,
-            'object_detection/image',
-            10
+        # Subscribe to the combined TaggedImage from image_processor
+        self.tagged_image_sub = self.create_subscription(
+            TaggedImage,
+            TAGGED_IMAGE_TOPIC,
+            self.tagged_image_callback,
+            10,
         )
 
-        # Synchronize depth + color frames by approximate timestamp
-        self.sync = message_filters.ApproximateTimeSynchronizer(
-            [self.depth_sub, self.color_sub],
-            queue_size=SYNC_QUEUE_SIZE,
-            slop=SYNC_SLOP,
+        # Publisher for the annotated TaggedImage
+        self.process_pub = self.create_publisher(
+            TaggedImage,
+            PROCESSED_TOPIC,
+            10,
         )
-        self.sync.registerCallback(self.synchronized_callback)
 
         self.get_logger().info('object_detection node started')
-        self.get_logger().info(f'Subscribed to depth: {DEPTH_TOPIC}')
-        self.get_logger().info(f'Subscribed to color: {COLOR_TOPIC}')
-        self.get_logger().info(f'Sync slop: {SYNC_SLOP}s')
+        self.get_logger().info(f'Subscribed to TaggedImage: {TAGGED_IMAGE_TOPIC}')
+        self.get_logger().info(f'Publishing annotated TaggedImage to: {PROCESSED_TOPIC}')
 
-    def synchronized_callback(self, depth_msg, color_msg):
-        """Called when a matching depth+color pair arrives within slop window"""
-        self.get_logger().info(
-            f'SYNC: Matched pair — depth: {depth_msg.header.stamp}, '
-            f'color: {color_msg.header.stamp}'
-        )
+    def tagged_image_callback(self, msg: TaggedImage):
+        """Enqueue incoming TaggedImage for async YOLO processing."""
+        self.get_logger().info('RECV: Got TaggedImage — enqueueing for detection')
         asyncio.run_coroutine_threadsafe(
-            self.image_pair_queue.put((depth_msg, color_msg)),
-            self.loop
+            self.image_queue.put(msg),
+            self.loop,
         )
 
     async def process_images(self):
-        """Dequeue synchronized pairs and run YOLO detection on both"""
+        """Dequeue TaggedImage messages and run YOLO detection on the color frame."""
         while rclpy.ok():
-            self.get_logger().info('PROCESS: Waiting for synchronized image pair...')
-            depth_msg, color_msg = await self.image_pair_queue.get()
-            self.get_logger().info('PROCESS: Got pair — running prediction')
+            self.get_logger().info('PROCESS: Waiting for TaggedImage...')
+            tagged_msg: TaggedImage = await self.image_queue.get()
+
+            color_msg = tagged_msg.image_data
+            depth_msg = tagged_msg.depth_data
+
+            self.get_logger().info('PROCESS: Got TaggedImage — running prediction')
             try:
                 bounding_boxes = predict_images(self, color_msg)
                 self.get_logger().info(f'PROCESS: PREDICTED IMAGES {bounding_boxes}')
 
-
+                # Re-publish as annotated TaggedImage, preserving depth + metadata
+                self.process_pub.publish(
+                    TaggedImage(
+                        image_data=color_msg,
+                        depth_data=depth_msg,
+                        imu_data=tagged_msg.imu_data,
+                        gps_data=tagged_msg.gps_data,
+                        color_r=0,
+                        color_g=0,
+                        color_b=0,
+                        confidence_level=0,
+                    )
+                )
 
             except Exception as e:
                 self.get_logger().error(f'PROCESS: Prediction error: {e}')
