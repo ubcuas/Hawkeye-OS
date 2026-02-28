@@ -8,10 +8,9 @@ from rclpy.qos import (
     DurabilityPolicy,
     qos_profile_sensor_data,
 )
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, Point
 from mavros_msgs.msg import State
 from mavros_msgs.srv import CommandLong
-from navigation.msg import ServoMsgs
 import threading
 import time
 import math
@@ -91,7 +90,7 @@ class ArduPilotNode(Node):
         self.servo_client = self.create_client(CommandLong, "/mavros/cmd/command")
 
         self.cmd_set_servo_water = self.create_subscription(
-            ServoMsgs,
+            Point,
             "/drone/set_servo",
             self.command_set_servo_water_cb,
             qos_reliable,
@@ -332,18 +331,18 @@ class ArduPilotNode(Node):
 
         return
 
-    def command_set_servo_water_cb(self, msg: ServoMsgs):
+    def command_set_servo_water_cb(self, msg: Point):
         """
         Callback to set a servo value via MAVROS.
-        msg.servo_num: Servo number (e.g. 9 for AUX1)
-        msg.pwm: PWM value (e.g. 1000-2000)
+        msg.x: Servo number (e.g. 9 for AUX1)
+        msg.y: PWM value (e.g. 1000-2000)
         """
         if not self.servo_client.service_is_ready():
             self.get_logger().error("Servo service not available!")
             return
 
-        servo_num = int(msg.servo_num)
-        pwm_value = float(msg.pwm)
+        servo_num = int(msg.x)
+        pwm_value = float(msg.y)
 
         req = CommandLong.Request()
         req.broadcast = False
