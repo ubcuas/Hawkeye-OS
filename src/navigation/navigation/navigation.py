@@ -1,7 +1,13 @@
 import rclpy
 from rclpy.node import Node
 from rclpy.duration import Duration
-from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy, qos_profile_sensor_data
+from rclpy.qos import (
+    QoSProfile,
+    ReliabilityPolicy,
+    HistoryPolicy,
+    DurabilityPolicy,
+    qos_profile_sensor_data,
+)
 from geometry_msgs.msg import PoseStamped
 from mavros_msgs.msg import State
 import threading
@@ -21,17 +27,16 @@ STATUS_LOG_PERIOD_S = 1.0
 DEBUG_FLAG = True
 
 
-
 class ArduPilotNode(Node):
     def __init__(self):
-        super().__init__('ardupilot_node')  
+        super().__init__("ardupilot_node")
 
         # Initialize target position
         self.target_pose = PoseStamped()
 
         # Initialize current position
         self.current_pose = PoseStamped()
-        
+
         # Initialize current position
         self.reference_pose = PoseStamped()
 
@@ -59,35 +64,35 @@ class ArduPilotNode(Node):
 
         # State Subscriber
         self.state_sub = self.create_subscription(
-            State, 
-            '/mavros/state', 
-            self.state_cb, 
-            qos_reliable
+            State, "/mavros/state", self.state_cb, qos_reliable
         )
 
         # Position Subscriber
         self.local_pose_sub = self.create_subscription(
             PoseStamped,
-            '/mavros/local_position/pose',
+            "/mavros/local_position/pose",
             self.local_pose_cb,
-            qos_profile_sensor_data
+            qos_profile_sensor_data,
         )
 
         # Command Subscriber
         self.cmd_sub = self.create_subscription(
-            PoseStamped, 
-            '/drone/cmd_pose', 
-            self.command_cb, 
-            qos_reliable
+            PoseStamped, "/drone/cmd_pose", self.command_cb, qos_reliable
         )
 
         # Location Publisher
         self.local_pos_pub = self.create_publisher(
-            PoseStamped, 
-            '/mavros/setpoint_position/local', 
-            qos_reliable
+            PoseStamped, "/mavros/setpoint_position/local", qos_reliable
         )
-        
+
+        # Water Servo Subcriber
+        self.cmd_set_servo_water = self.create_subscription(
+            PoseStamped,
+            "/drone/set_servo",
+            self.command_set_servo_water_cb,
+            qos_reliable,
+        )
+
         # Timer for Setpoints
         self.timer = self.create_timer(SETPOINT_PERIOD_S, self.timer_cb)
 
@@ -115,7 +120,6 @@ class ArduPilotNode(Node):
         elif (not self.current_state.armed) or (not self.current_state.connected):
             self.get_logger().warn("Disarmed/disconnected -> canceling mission.")
             self.cancel_mission()
-
 
     def copy_pose(self, src: PoseStamped) -> PoseStamped:
         dst = PoseStamped()
@@ -173,7 +177,6 @@ class ArduPilotNode(Node):
         self.target_pose.pose.orientation.z = math.sin(yaw * 0.5)
         self.target_pose.pose.orientation.w = math.cos(yaw * 0.5)
 
-
     def command_cb(self, msg):
         if not self.have_pose:
             self.get_logger().warn("Command received but no pose yet. Ignoring.")
@@ -191,7 +194,7 @@ class ArduPilotNode(Node):
         self.target_pose = self.delta_to_target_pose(msg)
         self.set_target_yaw_facing_goal()
         self.mission_active = True
-        
+
         self.get_logger().info(
             f"Mission started -> final target: "
             f"({self.target_pose.pose.position.x:.3f}, "
@@ -199,12 +202,16 @@ class ArduPilotNode(Node):
             f"{self.target_pose.pose.position.z:.3f})"
         )
 
-
-
     def timer_cb(self):
-        if not (self.current_state.connected and self.current_state.armed and self.current_state.mode == "GUIDED" and self.have_pose and self.mission_active):
+        if not (
+            self.current_state.connected
+            and self.current_state.armed
+            and self.current_state.mode == "GUIDED"
+            and self.have_pose
+            and self.mission_active
+        ):
             return
-        
+
         now = self.get_clock().now()
 
         # Current Position
@@ -217,8 +224,8 @@ class ArduPilotNode(Node):
         fy = float(self.target_pose.pose.position.y)
         fz = float(self.target_pose.pose.position.z)
 
-        dist_to_obj = ((fx - cx)**2 + (fy - cy)**2 + (fz - cz)**2) ** 0.5
-        
+        dist_to_obj = ((fx - cx) ** 2 + (fy - cy) ** 2 + (fz - cz) ** 2) ** 0.5
+
         if abs(dist_to_obj - DESIRED_DIST_M) <= DIST_TOL_M:
             self.get_logger().info(
                 f"Mission terminating at "
@@ -273,7 +280,7 @@ class ArduPilotNode(Node):
             self.step_index = 0
             self.in_dwell = False
             self.dwell_until = self.get_clock().now()
-        
+
         # Clamp step_index
         if self.step_index < 0:
             self.step_index = 0
@@ -300,24 +307,27 @@ class ArduPilotNode(Node):
         step_eps = STEP_EPS
         if dist_to_step > step_eps:
             return
-        
+
         if not self.in_dwell:
             self.in_dwell = True
             self.dwell_until = now + Duration(seconds=self.dwell_seconds)
-            self.get_logger().info(f"Entering dwell at step {self.step_index+1}")
+            self.get_logger().info(f"Entering dwell at step {self.step_index + 1}")
             return
-        
+
         if now < self.dwell_until:
             return
-        
+
         self.in_dwell = False
 
         if self.step_index < len(self.step_targets) - 1:
             self.step_index += 1
-            self.get_logger().info(f"Advancing to step {self.step_index+1}/{len(self.step_targets)}")
+            self.get_logger().info(
+                f"Advancing to step {self.step_index + 1}/{len(self.step_targets)}"
+            )
             return
-        
+
         return
+
 
 def main():
     rclpy.init()
@@ -333,7 +343,7 @@ def main():
             time.sleep(STATUS_LOG_PERIOD_S)
 
         while rclpy.ok():
-            if (DEBUG_FLAG):
+            if DEBUG_FLAG:
                 node.get_logger().info(
                     f"STATUS: {node.current_state.mode} | "
                     f"ARMED: {node.current_state.armed} | "
@@ -349,3 +359,4 @@ def main():
     finally:
         node.destroy_node()
         rclpy.shutdown()
+
