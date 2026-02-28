@@ -337,12 +337,14 @@ class ArduPilotNode(Node):
         msg.x: Servo number (e.g. 9 for AUX1)
         msg.y: PWM value (e.g. 1000-2000)
         """
-        if not self.servo_client.service_is_ready():
-            self.get_logger().error("Servo service not available!")
-            return
-
         servo_num = int(msg.x)
         pwm_value = float(msg.y)
+
+        self.get_logger().info(f"RECEIVED SERVO COMMAND: servo={servo_num}, pwm={pwm_value}")
+
+        if not self.servo_client.service_is_ready():
+            self.get_logger().warn("MAVROS servo service not available - command logged only")
+            return
 
         req = CommandLong.Request()
         req.broadcast = False
@@ -351,7 +353,7 @@ class ArduPilotNode(Node):
         req.param1 = float(servo_num)
         req.param2 = pwm_value
 
-        self.get_logger().info(f"Setting servo {servo_num} to PWM {pwm_value}")
+        self.get_logger().info(f"Sending to MAVROS: Setting servo {servo_num} to PWM {pwm_value}")
 
         future = self.servo_client.call_async(req)
         future.add_done_callback(self.servo_response_cb)
