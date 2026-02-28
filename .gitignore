@@ -7,3 +7,7 @@ received_stream
 log/
 install/
 build/
+
+.vscode/settings.json
+
+rosbag*/

@@ -61,6 +61,15 @@ COPY ./setup_env.sh /ros2_ws/setup_env.sh
 COPY requirements.txt /tmp/requirements.txt
 RUN pip3 install -r /tmp/requirements.txt
 
+# Install CLIP — use OpenAI's canonical package which correctly installs the 'clip' module
+# (ultralytics/CLIP fork has a broken pyproject.toml that installs as UNKNOWN-0.0.0)
+RUN pip3 install --no-cache-dir git+https://github.com/openai/CLIP.git
+
+# set the Ultralytics config directory to a writable location
+# disable auto-install so ultralytics doesn't try to re-install CLIP at runtime
+ENV YOLO_CONFIG_DIR=/tmp/Ultralytics
+ENV YOLO_AUTOINSTALL=False
+
 # Configure ROS environment for new user
 RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /home/$USERNAME/.bashrc \
     && echo "if [ -f /ros2_ws/install/setup.bash ]; then source /ros2_ws/install/setup.bash; fi" >> /home/$USERNAME/.bashrc

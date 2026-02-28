@@ -27,6 +27,9 @@ services:
       # Topics
       - OBJECT_DETECTION_TOPIC=object_detection/image
       - IMAGE_REQUEST_TOPIC=image_request
+      - YOLO_AUTOINSTALL=False
+      - YOLO_CONFIG_DIR=/tmp/Ultralytics
+      - PYTHONPATH=/home/ros/.local/lib/python3.10/site-packages:${PYTHONPATH}
     ipc: host
 volumes:
   ros2_ws_build:
