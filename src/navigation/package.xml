@@ -11,9 +11,13 @@
   <depend>geometry_msgs</depend>
   <depend>mavros_msgs</depend>
   <depend>tf_transformations</depend>
-  
+  <depend>rosidl_default_generators</depend>
+
   <exec_depend>mavros</exec_depend>
   <exec_depend>mavros_extras</exec_depend>
+  <exec_depend>rosidl_default_runtime</exec_depend>
+
+  <!-- <member_of_group>rosidl_interface_packages</member_of_group> -->
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
