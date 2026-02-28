@@ -5,8 +5,10 @@ from typing import Optional
 import rclpy
 from rclpy.node import Node
 from rclpy.executors import SingleThreadedExecutor
+from rcl_interfaces.msg import Log
 import socketio
 import cv2
+import json
 from aiortc import (
     RTCPeerConnection,
     RTCSessionDescription,
@@ -42,6 +44,7 @@ class StreamingNode(Node):
         # WebRTC state
         self.peer_connection = None
         self.data_channel = None
+        self.log_data_channel = None
         self.ice_candidate_queue = []  # Queue ICE candidates until ready
         self.ice_gathering_complete = False
 
@@ -63,6 +66,11 @@ class StreamingNode(Node):
             Image, "object_detection/image", self._route_image_to_track, 10
         )
 
+        # Subscribe to logs from other nodes (using /rosout)
+        self.log_subscription = self.create_subscription(
+            Log, "/rosout", self._route_log_to_frontend, 10
+        )
+
         # Register Socket.IO event handlers
         self.signaling_handler = SignalingHandler(
             signaling_url=self.signaling_url, logger=self.get_logger(), node=self
@@ -72,11 +80,20 @@ class StreamingNode(Node):
         self.get_logger().info("Streaming node initialized")
         self.get_logger().info(f"Signaling server URL: {self.signaling_url}")
         self.get_logger().info("Subscribed to: object_detection/image")
+        self.get_logger().info("Subscribed to: /rosout")
 
     def _route_image_to_track(self, msg: Image):
         """Route incoming images to the current video track"""
         if self.video_track:
             self.video_track.put_image(msg)
+    
+    def _route_log_to_frontend(self, msg: Log):
+        """Route incoming log messages to the current video track (for overlay)"""
+        if self.log_data_channel is not None and self.log_data_channel.readyState == "open":
+            if msg.name == "streaming":
+                return  # Don't send logs from this node to avoid feedback loop
+            log_message = json.dumps({ "level": msg.level, "node": msg.name, "message": msg.msg })
+            self.log_data_channel.send(log_message)
 
     async def connect_to_signaling_server(self):
         await self.signaling_handler.connect_to_signaling_server()
@@ -94,6 +111,7 @@ class StreamingNode(Node):
                 await self.peer_connection.close()
                 self.peer_connection = None
                 self.data_channel = None
+                self.log_data_channel = None
 
             self.get_logger().info("Creating WebRTC peer connection")
 
@@ -164,6 +182,18 @@ class StreamingNode(Node):
             @self.data_channel.on("message")
             def on_message(message):
                 self.get_logger().info(f"Received message on data channel: {message}")
+
+            # Create data channel for logging
+            self.log_data_channel = pc.createDataChannel("logs")
+            self.get_logger().info("Log data channel created")
+
+            @self.log_data_channel.on("open")
+            def on_log_open():
+                self.get_logger().info("Log data channel opened")
+            
+            @self.log_data_channel.on("close")
+            def on_log_close():
+                self.get_logger().info("Log data channel closed")
 
             # Create offer
             offer = await pc.createOffer()
