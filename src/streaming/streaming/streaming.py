@@ -1,25 +1,22 @@
 import asyncio
-import os
+import base64
+import json
 import traceback
-from typing import Optional
-import rclpy
-from rclpy.node import Node
-from rclpy.executors import SingleThreadedExecutor
-import socketio
 import cv2
+import numpy as np
+import rclpy
 from aiortc import (
-    RTCPeerConnection,
-    RTCSessionDescription,
-    RTCIceCandidate,
     RTCConfiguration,
     RTCIceServer,
+    RTCPeerConnection,
+    RTCSessionDescription,
 )
 from aiortc.sdp import candidate_from_sdp
-from aiortc.mediastreams import VideoStreamTrack
-from av import VideoFrame
-import numpy as np
+from rclpy.executors import SingleThreadedExecutor
+from rclpy.node import Node
 from sensor_msgs.msg import Image
 
+from hawkeye_msgs.msg import TaggedImage
 from streaming.constants import WEBRTC_SIGNALING_URL
 from streaming.signaling_handler import SignalingHandler
 from streaming.video_track import ROSVideoStreamTrack
@@ -63,6 +60,11 @@ class StreamingNode(Node):
             Image, "object_detection/image", self._route_image_to_track, 10
         )
 
+        # Subscribe to tagged images from object detection
+        self.tagged_image_subscription = self.create_subscription(
+            TaggedImage, "object_detection/tagged_image", self._route_tagged_image, 10
+        )
+
         # Register Socket.IO event handlers
         self.signaling_handler = SignalingHandler(
             signaling_url=self.signaling_url, logger=self.get_logger(), node=self
@@ -72,11 +74,35 @@ class StreamingNode(Node):
         self.get_logger().info("Streaming node initialized")
         self.get_logger().info(f"Signaling server URL: {self.signaling_url}")
         self.get_logger().info("Subscribed to: object_detection/image")
+        self.get_logger().info("Subscribed to: object_detection/tagged_image")
 
     def _route_image_to_track(self, msg: Image):
         """Route incoming images to the current video track"""
         if self.video_track:
             self.video_track.put_image(msg)
+
+    def _route_tagged_image(self, msg: TaggedImage):
+        """Forward tagged image and metadata to GCOM via the data channel"""
+        if not self.data_channel or self.data_channel.readyState != "open":
+            return
+
+        img = msg.image_data
+        channels = 3 if img.encoding == "rgb8" else 1
+        frame = np.frombuffer(img.data, dtype=np.uint8).reshape(
+            (img.height, img.width, channels)
+        )
+        _, jpeg_bytes = cv2.imencode(".jpg", frame)
+        image_b64 = base64.b64encode(jpeg_bytes.tobytes()).decode("utf-8")
+
+        payload = json.dumps(
+            {
+                "image_data": image_b64,
+                "color_detection": [msg.color_r, msg.color_g, msg.color_b],
+                "bounding_box": [[pt.x, pt.y] for pt in msg.bounding_box],
+                "confidence_level": msg.confidence_level,
+            }
+        )
+        self.data_channel.send(payload)
 
     async def connect_to_signaling_server(self):
         await self.signaling_handler.connect_to_signaling_server()
@@ -150,7 +176,7 @@ class StreamingNode(Node):
             )
 
             # Create data channel
-            self.data_channel = pc.createDataChannel("streaming")
+            self.data_channel = pc.createDataChannel("oldc_images")
             self.get_logger().info("Data channel created")
 
             @self.data_channel.on("open")

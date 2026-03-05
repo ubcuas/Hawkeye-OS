@@ -15,14 +15,15 @@ services:
       - ./test_images:/ros2_ws/test_images
     working_dir: /ros2_ws
     command: bash -lc "sudo chown -R ros:ros /ros2_ws/build /ros2_ws/install && colcon build --packages-skip imaging && source install/setup.bash && tail -f /dev/null"
-    network_mode: host
+    # NOTE: Removing network_mode: host breaks running ROS2 nodes across multiple containers
+    # (DDS multicast discovery stops working). Re-add network_mode: host if that is needed,
+    # but be aware it makes host.docker.internal unreachable (extra_hosts is incompatible with it).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - DISPLAY=${DISPLAY}
       - ROS_DOMAIN_ID=0
 
-      # Orchestrator configuration
-      # This is only for LOCAL DEVELOPMENT where the signaling server is running on the host machine - in prod this should be set to the actual remote signaling server URL
-      - WEBRTC_SIGNALING_URL=ws://kai-subclavian-constrictedly.ngrok-free.dev
       # Topics
       - OBJECT_DETECTION_TOPIC=object_detection/image
       - IMAGE_REQUEST_TOPIC=image_request
