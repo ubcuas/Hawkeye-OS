@@ -1,7 +1,11 @@
 import asyncio
 import base64
 import json
+import base64
+import json
 import traceback
+import cv2
+import numpy as np
 import cv2
 import numpy as np
 import rclpy
@@ -14,14 +18,19 @@ import json
 from aiortc import (
     RTCConfiguration,
     RTCIceServer,
+    RTCConfiguration,
+    RTCIceServer,
     RTCPeerConnection,
     RTCSessionDescription,
 )
 from aiortc.sdp import candidate_from_sdp
 from rclpy.executors import SingleThreadedExecutor
 from rclpy.node import Node
+from rclpy.executors import SingleThreadedExecutor
+from rclpy.node import Node
 from sensor_msgs.msg import Image
 
+from hawkeye_msgs.msg import TaggedImage
 from hawkeye_msgs.msg import TaggedImage
 from streaming.constants import WEBRTC_SIGNALING_URL
 from streaming.signaling_handler import SignalingHandler
@@ -101,6 +110,29 @@ class StreamingNode(Node):
                 return  # Don't send logs from this node to avoid feedback loop
             log_message = json.dumps({ "level": msg.level, "node": msg.name, "message": msg.msg })
             self.log_data_channel.send(log_message)
+
+    def _route_tagged_image(self, msg: TaggedImage):
+        """Forward tagged image and metadata to GCOM via the data channel"""
+        if not self.data_channel or self.data_channel.readyState != "open":
+            return
+
+        img = msg.image_data
+        channels = 3 if img.encoding == "rgb8" else 1
+        frame = np.frombuffer(img.data, dtype=np.uint8).reshape(
+            (img.height, img.width, channels)
+        )
+        _, jpeg_bytes = cv2.imencode(".jpg", frame)
+        image_b64 = base64.b64encode(jpeg_bytes.tobytes()).decode("utf-8")
+
+        payload = json.dumps(
+            {
+                "image_data": image_b64,
+                "color_detection": [msg.color_r, msg.color_g, msg.color_b],
+                "bounding_box": [[pt.x, pt.y] for pt in msg.bounding_box],
+                "confidence_level": msg.confidence_level,
+            }
+        )
+        self.data_channel.send(payload)
 
     def _route_tagged_image(self, msg: TaggedImage):
         """Forward tagged image and metadata to GCOM via the data channel"""
