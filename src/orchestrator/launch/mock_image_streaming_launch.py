@@ -25,7 +25,15 @@ def generate_launch_description():
         ]
     )
 
+    mock_tagged_image_node = Node(
+        package='orchestrator',
+        executable='mock_tagged_image',
+        name='mock_tagged_image',
+        output='screen',
+    )
+
     return LaunchDescription([
         mock_object_detection_node,
+        mock_tagged_image_node,
         streaming_node,
     ])
