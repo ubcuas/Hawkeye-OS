@@ -18,9 +18,8 @@ from aiortc import (
     RTCPeerConnection,
     RTCSessionDescription,
 )
+
 from aiortc.sdp import candidate_from_sdp
-from rclpy.executors import SingleThreadedExecutor
-from rclpy.node import Node
 from sensor_msgs.msg import Image
 
 from hawkeye_msgs.msg import TaggedImage
