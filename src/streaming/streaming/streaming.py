@@ -4,16 +4,22 @@ import json
 import traceback
 import cv2
 import numpy as np
+
 import rclpy
+from rclpy.node import Node
+from rclpy.executors import SingleThreadedExecutor
+from rcl_interfaces.msg import Log
+
+import socketio
+
 from aiortc import (
     RTCConfiguration,
     RTCIceServer,
     RTCPeerConnection,
     RTCSessionDescription,
 )
+
 from aiortc.sdp import candidate_from_sdp
-from rclpy.executors import SingleThreadedExecutor
-from rclpy.node import Node
 from sensor_msgs.msg import Image
 
 from hawkeye_msgs.msg import TaggedImage
@@ -39,6 +45,7 @@ class StreamingNode(Node):
         # WebRTC state
         self.peer_connection = None
         self.data_channel = None
+        self.log_data_channel = None
         self.ice_candidate_queue = []  # Queue ICE candidates until ready
         self.ice_gathering_complete = False
 
@@ -60,6 +67,11 @@ class StreamingNode(Node):
             Image, "object_detection/image", self._route_image_to_track, 10
         )
 
+        # Subscribe to logs from other nodes (using /rosout)
+        self.log_subscription = self.create_subscription(
+            Log, "/rosout", self._route_log_to_frontend, 10
+        )
+
         # Subscribe to tagged images from object detection
         self.tagged_image_subscription = self.create_subscription(
             TaggedImage, "object_detection/tagged_image", self._route_tagged_image, 10
@@ -74,12 +86,44 @@ class StreamingNode(Node):
         self.get_logger().info("Streaming node initialized")
         self.get_logger().info(f"Signaling server URL: {self.signaling_url}")
         self.get_logger().info("Subscribed to: object_detection/image")
+        self.get_logger().info("Subscribed to: /rosout")
         self.get_logger().info("Subscribed to: object_detection/tagged_image")
 
     def _route_image_to_track(self, msg: Image):
         """Route incoming images to the current video track"""
         if self.video_track:
             self.video_track.put_image(msg)
+    
+    def _route_log_to_frontend(self, msg: Log):
+        """Route incoming log messages to the current video track (for overlay)"""
+        if self.log_data_channel is not None and self.log_data_channel.readyState == "open":
+            if msg.name == "streaming":
+                return  # Don't send logs from this node to avoid feedback loop
+            log_message = json.dumps({ "level": msg.level, "node": msg.name, "message": msg.msg })
+            self.log_data_channel.send(log_message)
+
+    def _route_tagged_image(self, msg: TaggedImage):
+        """Forward tagged image and metadata to GCOM via the data channel"""
+        if not self.data_channel or self.data_channel.readyState != "open":
+            return
+
+        img = msg.image_data
+        channels = 3 if img.encoding == "rgb8" else 1
+        frame = np.frombuffer(img.data, dtype=np.uint8).reshape(
+            (img.height, img.width, channels)
+        )
+        _, jpeg_bytes = cv2.imencode(".jpg", frame)
+        image_b64 = base64.b64encode(jpeg_bytes.tobytes()).decode("utf-8")
+
+        payload = json.dumps(
+            {
+                "image_data": image_b64,
+                "color_detection": [msg.color_r, msg.color_g, msg.color_b],
+                "bounding_box": [[pt.x, pt.y] for pt in msg.bounding_box],
+                "confidence_level": msg.confidence_level,
+            }
+        )
+        self.data_channel.send(payload)
 
     def _route_tagged_image(self, msg: TaggedImage):
         """Forward tagged image and metadata to GCOM via the data channel"""
@@ -120,6 +164,7 @@ class StreamingNode(Node):
                 await self.peer_connection.close()
                 self.peer_connection = None
                 self.data_channel = None
+                self.log_data_channel = None
 
             self.get_logger().info("Creating WebRTC peer connection")
 
@@ -190,6 +235,18 @@ class StreamingNode(Node):
             @self.data_channel.on("message")
             def on_message(message):
                 self.get_logger().info(f"Received message on data channel: {message}")
+
+            # Create data channel for logging
+            self.log_data_channel = pc.createDataChannel("logs")
+            self.get_logger().info("Log data channel created")
+
+            @self.log_data_channel.on("open")
+            def on_log_open():
+                self.get_logger().info("Log data channel opened")
+            
+            @self.log_data_channel.on("close")
+            def on_log_close():
+                self.get_logger().info("Log data channel closed")
 
             # Create offer
             offer = await pc.createOffer()
