@@ -1,20 +1,17 @@
 import asyncio
 import base64
 import json
-import base64
-import json
 import traceback
 import cv2
 import numpy as np
-import cv2
-import numpy as np
+
 import rclpy
 from rclpy.node import Node
 from rclpy.executors import SingleThreadedExecutor
 from rcl_interfaces.msg import Log
+
 import socketio
-import cv2
-import json
+
 from aiortc import (
     RTCConfiguration,
     RTCIceServer,
@@ -26,11 +23,8 @@ from aiortc import (
 from aiortc.sdp import candidate_from_sdp
 from rclpy.executors import SingleThreadedExecutor
 from rclpy.node import Node
-from rclpy.executors import SingleThreadedExecutor
-from rclpy.node import Node
 from sensor_msgs.msg import Image
 
-from hawkeye_msgs.msg import TaggedImage
 from hawkeye_msgs.msg import TaggedImage
 from streaming.constants import WEBRTC_SIGNALING_URL
 from streaming.signaling_handler import SignalingHandler
