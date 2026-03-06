@@ -15,8 +15,6 @@ import socketio
 from aiortc import (
     RTCConfiguration,
     RTCIceServer,
-    RTCConfiguration,
-    RTCIceServer,
     RTCPeerConnection,
     RTCSessionDescription,
 )
