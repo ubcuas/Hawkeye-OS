@@ -15,11 +15,7 @@ services:
       - ./test_images:/ros2_ws/test_images
     working_dir: /ros2_ws
     command: bash -lc "sudo chown -R ros:ros /ros2_ws/build /ros2_ws/install && colcon build --packages-skip imaging && source install/setup.bash && tail -f /dev/null"
-    # NOTE: Removing network_mode: host breaks running ROS2 nodes across multiple containers
-    # (DDS multicast discovery stops working). Re-add network_mode: host if that is needed,
-    # but be aware it makes host.docker.internal unreachable (extra_hosts is incompatible with it).
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    network_mode: host
     environment:
       - DISPLAY=${DISPLAY}
       - ROS_DOMAIN_ID=0
