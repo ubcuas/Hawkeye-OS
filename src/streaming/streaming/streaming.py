@@ -63,7 +63,7 @@ class StreamingNode(Node):
         # image_processor synchronizes color+depth and publishes TaggedImage; we pull the
         # color frame from it to drive the WebRTC video track.
         self.image_processor_subscription = self.create_subscription(
-            TaggedImage, "/image_processor/tagged_image", self._route_camera_tagged_image, 10
+            CompressedImage, "/camera/camera/color/image_raw/compressed", self._route_image_to_track, 10
         )
 
         # Subscribe to tagged images from object detection
@@ -97,6 +97,8 @@ class StreamingNode(Node):
         """Forward tagged image and metadata to GCOM via the data channel"""
         if not self.data_channel or self.data_channel.readyState != "open":
             return
+
+        self.get_logger().info("GOT TO STREAMING!")
 
         # image_data is CompressedImage (JPEG/PNG bytes) — decode first
         np_arr = np.frombuffer(msg.image_data.data, dtype=np.uint8)
