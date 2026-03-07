@@ -3,7 +3,7 @@ import json
 import os
 import rclpy
 from rclpy.node import Node
-from rclpy.executors import SingleThreadedExecutor 
+from rclpy.executors import SingleThreadedExecutor
 from std_msgs.msg import String
 from sensor_msgs.msg import Image
 import paho.mqtt.client as mqtt
