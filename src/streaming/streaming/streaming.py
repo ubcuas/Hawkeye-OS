@@ -54,10 +54,16 @@ class StreamingNode(Node):
             ]
         )
 
-        # Subscribe to video feed from object detection
-        # Use a routing method so we can swap tracks without recreating the subscription
+        # Subscribe to video feed — mock pipeline (mock_object_detection publishes here)
         self.image_subscription = self.create_subscription(
             CompressedImage, "color/image_raw/compressed", self._route_image_to_track, 10
+        )
+
+        # Subscribe to image_processor output — real camera pipeline (rs_hawkeye_launch)
+        # image_processor synchronizes color+depth and publishes TaggedImage; we pull the
+        # color frame from it to drive the WebRTC video track.
+        self.image_processor_subscription = self.create_subscription(
+            TaggedImage, "/image_processor/tagged_image", self._route_camera_tagged_image, 10
         )
 
         # Subscribe to tagged images from object detection
@@ -73,13 +79,19 @@ class StreamingNode(Node):
 
         self.get_logger().info("Streaming node initialized")
         self.get_logger().info(f"Signaling server URL: {self.signaling_url}")
-        self.get_logger().info("Subscribed to: color/image_raw/compressed")
+        self.get_logger().info("Subscribed to: color/image_raw/compressed (mock)")
+        self.get_logger().info("Subscribed to: /image_processor/tagged_image (real camera)")
         self.get_logger().info("Subscribed to: object_detection/tagged_image")
 
     def _route_image_to_track(self, msg: CompressedImage):
-        """Route incoming images to the current video track"""
+        """Route incoming CompressedImage to the WebRTC video track (mock pipeline)"""
         if self.video_track:
             self.video_track.put_image(msg)
+
+    def _route_camera_tagged_image(self, msg: TaggedImage):
+        """Extract color frame from image_processor TaggedImage and send to WebRTC (real camera pipeline)"""
+        if self.video_track and msg.image_data.data:
+            self.video_track.put_image(msg.image_data)
 
     def _route_tagged_image(self, msg: TaggedImage):
         """Forward tagged image and metadata to GCOM via the data channel"""
