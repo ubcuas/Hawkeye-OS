@@ -2,6 +2,7 @@ import asyncio
 import base64
 import json
 import traceback
+import uuid
 import cv2
 import numpy as np
 
@@ -99,31 +100,18 @@ class StreamingNode(Node):
         if self.log_data_channel is not None and self.log_data_channel.readyState == "open":
             if msg.name == "streaming":
                 return  # Don't send logs from this node to avoid feedback loop
-            log_message = json.dumps({ "level": msg.level, "node": msg.name, "message": msg.msg })
+            level_names = {10: "DEBUG", 20: "INFO", 30: "WARN", 40: "ERROR", 50: "FATAL"}
+            log_message = json.dumps({
+                "level": level_names.get(msg.level, f"LVL{msg.level}"),
+                "node": msg.name,
+                "message": msg.msg,
+                "timestamp": msg.stamp.sec * 1000 + msg.stamp.nanosec // 1_000_000,
+                "file": msg.file,
+                "function": msg.function,
+                "line": msg.line,
+                "id": uuid.uuid4().hex[:8],  # Unique ID for this log message
+            })
             self.log_data_channel.send(log_message)
-
-    def _route_tagged_image(self, msg: TaggedImage):
-        """Forward tagged image and metadata to GCOM via the data channel"""
-        if not self.data_channel or self.data_channel.readyState != "open":
-            return
-
-        img = msg.image_data
-        channels = 3 if img.encoding == "rgb8" else 1
-        frame = np.frombuffer(img.data, dtype=np.uint8).reshape(
-            (img.height, img.width, channels)
-        )
-        _, jpeg_bytes = cv2.imencode(".jpg", frame)
-        image_b64 = base64.b64encode(jpeg_bytes.tobytes()).decode("utf-8")
-
-        payload = json.dumps(
-            {
-                "image_data": image_b64,
-                "color_detection": [msg.color_r, msg.color_g, msg.color_b],
-                "bounding_box": [[pt.x, pt.y] for pt in msg.bounding_box],
-                "confidence_level": msg.confidence_level,
-            }
-        )
-        self.data_channel.send(payload)
 
     def _route_tagged_image(self, msg: TaggedImage):
         """Forward tagged image and metadata to GCOM via the data channel"""
