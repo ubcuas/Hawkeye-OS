@@ -18,7 +18,7 @@ class MockObjectDetection(Node):
         super().__init__('mock_object_detection')   
         
         # Publisher for continuous video feed
-        self.image_pub = self.create_publisher(Image, 'object_detection/image', 10)
+        self.image_pub = self.create_publisher(Image, 'color/image_raw/compressed', 10)
         
         # Timer for publishing at 30 FPS
         self.timer = self.create_timer(1.0/30.0, self.publish_frame)
@@ -40,7 +40,7 @@ class MockObjectDetection(Node):
             self.get_logger().info(f'Video FPS: {fps}, Total frames: {frame_count}')
         
         self.get_logger().info('Mock Object Detection started')
-        self.get_logger().info('Publishing continuous feed at 30 FPS on: object_detection/image')
+        self.get_logger().info('Publishing continuous feed at 30 FPS on: color/image_raw/compressed')
 
     def publish_frame(self):
         """Read and publish raw video frame"""

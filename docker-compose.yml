@@ -21,11 +21,12 @@ services:
       - ROS_DOMAIN_ID=0
 
       # Orchestrator configuration
-      # This is only for LOCAL DEVELOPMENT where the signaling server is running on the host machine - in prod this should be set to the actual remote signaling server URL
-      - WEBRTC_SIGNALING_URL=ws://host.docker.internal:8081
+      # This is only for LOCAL DEVELOPMENT where the signaling server is running on the host machine - in prod this should be set to the actual remote signaling
+      # https://kai-subclavian-constrictedly.ngrok-free.dev server URL
+      - WEBRTC_SIGNALING_URL=https://kai-subclavian-constrictedly.ngrok-free.dev
 
       # Topics
-      - OBJECT_DETECTION_TOPIC=object_detection/image
+      - OBJECT_DETECTION_TOPIC=color/image_raw/compressed
       - IMAGE_REQUEST_TOPIC=image_request
       - YOLO_AUTOINSTALL=False
       - YOLO_CONFIG_DIR=/tmp/Ultralytics
