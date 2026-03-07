@@ -8,12 +8,25 @@ from rclpy.qos import (
     DurabilityPolicy,
     qos_profile_sensor_data,
 )
-from geometry_msgs.msg import PoseStamped, Point
+from geometry_msgs.msg import PoseStamped
 from mavros_msgs.msg import State
 from mavros_msgs.srv import CommandLong
+from std_msgs.msg import Float32MultiArray
 import threading
 import time
 import math
+from dataclasses import dataclass
+
+
+@dataclass
+class ServoCommand:
+    """Custom type for servo commands."""
+    servo_num: int
+    pwm_value: int
+
+    @classmethod
+    def from_array(cls, msg: Float32MultiArray) -> 'ServoCommand':
+        return cls(servo_num=int(msg.data[0]), pwm_value=int(msg.data[1]))
 
 # ==========================
 # Tunable parameters
@@ -90,7 +103,7 @@ class ArduPilotNode(Node):
         self.servo_client = self.create_client(CommandLong, "/mavros/cmd/command")
 
         self.cmd_set_servo_water = self.create_subscription(
-            Point,
+            Float32MultiArray,
             "/drone/set_servo",
             self.command_set_servo_water_cb,
             qos_reliable,
@@ -331,16 +344,15 @@ class ArduPilotNode(Node):
 
         return
 
-    def command_set_servo_water_cb(self, msg: Point):
+    def command_set_servo_water_cb(self, msg: Float32MultiArray):
         """
         Callback to set a servo value via MAVROS.
-        msg.x: Servo number (e.g. 9 for AUX1)
-        msg.y: PWM value (e.g. 1000-2000)
+        msg.data[0]: Servo number (e.g. 9 for AUX1)
+        msg.data[1]: PWM value (e.g. 1000-2000)
         """
-        servo_num = int(msg.x)
-        pwm_value = float(msg.y)
+        cmd = ServoCommand.from_array(msg)
 
-        self.get_logger().info(f"RECEIVED SERVO COMMAND: servo={servo_num}, pwm={pwm_value}")
+        self.get_logger().info(f"RECEIVED SERVO COMMAND: servo={cmd.servo_num}, pwm={cmd.pwm_value}")
 
         if not self.servo_client.service_is_ready():
             self.get_logger().warn("MAVROS servo service not available - command logged only")
@@ -350,10 +362,10 @@ class ArduPilotNode(Node):
         req.broadcast = False
         req.command = 183
         req.confirmation = 0
-        req.param1 = float(servo_num)
-        req.param2 = pwm_value
+        req.param1 = float(cmd.servo_num)
+        req.param2 = float(cmd.pwm_value)
 
-        self.get_logger().info(f"Sending to MAVROS: Setting servo {servo_num} to PWM {pwm_value}")
+        self.get_logger().info(f"Sending to MAVROS: Setting servo {cmd.servo_num} to PWM {cmd.pwm_value}")
 
         future = self.servo_client.call_async(req)
         future.add_done_callback(self.servo_response_cb)
