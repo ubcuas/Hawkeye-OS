@@ -114,14 +114,24 @@ echo -e "${GREEN}✓ Docker container started${NC}"
 echo ""
 
 # ==============================================================================
-# Step 3: Build ROS Workspace
+# Step 3: Wait for ROS Workspace Build
 # ==============================================================================
 
-echo -e "${YELLOW}[3/5] Building ROS workspace...${NC}"
-if ! $DC exec -T ros2_workspace bash -c "colcon build --symlink-install 2>&1"; then
-    echo -e "${RED}Error: ROS workspace build failed${NC}"
-    exit 1
-fi
+echo -e "${YELLOW}[3/5] Waiting for ROS workspace build...${NC}"
+echo "  (colcon build --symlink-install is running inside the container)"
+WAITED=0
+MAX_WAIT=300  # colcon can take a while on first build
+until $DC exec -T ros2_workspace test -f /ros2_ws/install/setup.bash 2>/dev/null; do
+    if [ "$WAITED" -ge "$MAX_WAIT" ]; then
+        echo -e "${RED}Error: ROS workspace build did not finish within ${MAX_WAIT}s${NC}"
+        echo "Check container logs:"
+        $DC logs --tail=30
+        exit 1
+    fi
+    sleep 2
+    WAITED=$((WAITED + 2))
+    echo -ne "  Waited ${WAITED}s...\r"
+done
 echo -e "${GREEN}✓ ROS workspace built${NC}"
 echo ""
 
@@ -131,35 +141,24 @@ echo ""
 
 echo -e "${YELLOW}[4/5] Opening terminal windows...${NC}"
 
-# Open a named terminal window, falling back through available emulators.
-# On systems with no GUI terminal, logs to a file in logs/.
+# Open a named tmux window. Falls back to background log file if tmux is missing.
 open_terminal() {
     local title="$1"
     local cmd="$2"
 
-    if command -v mintty &>/dev/null; then
-        mintty -t "$title" -h always bash -c "$cmd; exec bash" &
-    elif [[ "$(uname -s)" == "Darwin" ]]; then
-        osascript -e "tell application \"Terminal\" to activate" \
-                  -e "tell application \"Terminal\" to do script \"$cmd\""
-    elif command -v gnome-terminal &>/dev/null; then
-        gnome-terminal --title="$title" -- bash -c "$cmd; exec bash" &
-    elif command -v konsole &>/dev/null; then
-        konsole --title "$title" -e bash -c "$cmd; exec bash" &
-    elif command -v xfce4-terminal &>/dev/null; then
-        xfce4-terminal --title="$title" -x bash -c "$cmd; exec bash" &
-    elif command -v xterm &>/dev/null; then
-        xterm -title "$title" -e bash -c "$cmd; exec bash" &
-    elif [ -n "$TMUX" ] && command -v tmux &>/dev/null; then
-        tmux new-window -n "$title" bash -c "$cmd; exec bash"
+    if command -v tmux &>/dev/null; then
+        if ! tmux has-session -t hawkeye 2>/dev/null; then
+            tmux new-session -d -s hawkeye -n "$title" "bash -c '$cmd; exec bash'"
+        else
+            tmux new-window -t hawkeye -n "$title" "bash -c '$cmd; exec bash'"
+        fi
+        echo "  → tmux window: $title"
     else
         mkdir -p "$WORKDIR/logs"
         local logfile="$WORKDIR/logs/${title// /_}.log"
         bash -c "$cmd" > "$logfile" 2>&1 &
-        echo -e "  ${YELLOW}No terminal emulator found. '$title' running in background → $logfile${NC}"
-        return
+        echo -e "  ${YELLOW}→ tmux not found. '$title' running in background → $logfile${NC}"
     fi
-    echo "  → Opened terminal: $title"
 }
 
 echo "  → Starting GCOM server..."
@@ -167,11 +166,11 @@ open_terminal "GCOM Server" "cd '$WORKDIR' && '$VENV_DIR/bin/python3' mock_gcom.
 sleep 1
 
 echo "  → Starting Object Detection..."
-open_terminal "Object Detection" "cd '$WORKDIR' && $DC exec ros2_workspace bash -c 'source /opt/ros/humble/setup.bash && source install/setup.bash && ros2 run orchestrator mock_object_detection'"
+open_terminal "Object Detection" "cd '$WORKDIR' && $DC exec ros2_workspace bash -c \"source /opt/ros/humble/setup.bash && source install/setup.bash && ros2 run orchestrator mock_object_detection\""
 sleep 1
 
 echo "  → Starting Orchestrator..."
-open_terminal "Orchestrator" "cd '$WORKDIR' && $DC exec ros2_workspace bash -c 'source /opt/ros/humble/setup.bash && source install/setup.bash && ros2 run orchestrator orchestrator'"
+open_terminal "Orchestrator" "cd '$WORKDIR' && $DC exec ros2_workspace bash -c \"source /opt/ros/humble/setup.bash && source install/setup.bash && ros2 run orchestrator orchestrator\""
 
 echo -e "${GREEN}✓ Terminal windows opened${NC}"
 echo ""
@@ -184,7 +183,8 @@ echo "============================================================"
 echo -e "${GREEN}SUCCESS! System is starting...${NC}"
 echo "============================================================"
 echo ""
-echo -e "${YELLOW}Three terminal windows have been opened:${NC}"
+echo -e "${YELLOW}Three tmux windows started in session 'hawkeye':${NC}"
+echo "  Attach with: tmux attach -t hawkeye"
 echo "  1. GCOM Server (Host)"
 echo "  2. Object Detection (Docker)"
 echo "  3. Orchestrator (Docker)"
