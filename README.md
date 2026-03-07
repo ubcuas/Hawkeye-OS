@@ -64,7 +64,7 @@ Make sure you're in the project's root directory (../Hawkeye-OS)
 
 In a Normal Terminal: 
 ```bash 
-py mock_gcom.py
+python3 mock_gcom.py
 ```
 
 Inside the Docker Workspace (see previous section for setup): 
@@ -75,6 +75,31 @@ ros2 run orchestrator orchestrator
 For testing, mock queues are available 
 ```bash
 ros2 run orchestrator mock_object_detection ("on another terminal")
+```
+
+### Unit Tests
+
+Set up the virtual environment (first time only):
+```bash
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+Run all tests:
+```bash
+source venv/bin/activate
+pytest
+```
+
+Run with coverage:
+```bash
+pytest --cov=src --cov-report=term-missing
+```
+
+Run a specific file (example):
+```bash
+pytest tests/streaming/test_streaming.py
 ```
 
 ### Automated Build/Test

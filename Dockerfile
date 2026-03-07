@@ -1,22 +1,32 @@
 FROM ros:humble
 
-# Build arguments for user configuration
 ARG USERNAME=ros
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 
-# Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
 ENV ROS_DISTRO=humble
 
-# Create non-root user with sudo
+# Fix date/clock-skew issues (common in VMs/CI) — keeps GPG verification intact
+RUN echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check \
+ && echo 'Acquire::Check-Date "false";' >> /etc/apt/apt.conf.d/99no-check
+
+# Re-import the ROS GPG key explicitly so it is always fresh
+RUN apt-get update -o Acquire::AllowInsecureRepositories=true \
+ && apt-get install -y --no-install-recommends curl ca-certificates gnupg \
+ && rm -rf /var/lib/apt/lists/* \
+ && curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
+    | gpg --dearmor -o /usr/share/keyrings/ros-archive-keyring.gpg
+
+# Create non-root user
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid $USER_GID $USERNAME \
     && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
-    && apt-get update -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true \
-    && apt-get install -y --allow-unauthenticated sudo \
+    && apt-get update \
+    && apt-get install -y sudo \
     && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME
+
 
 # Install dependencies
 RUN apt-get update && apt-get install -y \
