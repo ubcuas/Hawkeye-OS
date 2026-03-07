@@ -1,18 +1,27 @@
 from ultralytics import YOLOE
 import cv2
 import numpy as np
+import torch
 from rclpy.node import Node
 import os
 
 # --- Configuration ---
 MODEL_PATH = "/ros2_ws/src/object_detection/yoloe-26x-seg.pt"
 CONF_THRESH = 0.25
+IMGSZ = 640
+USE_CUDA = True
 VISUALIZE = False
 
 CLASSES = [
     "red circle", "blue circle", "green circle",
     "black circle", "yellow circle", "white circle"
 ]
+
+# Pick inference device
+if USE_CUDA and torch.cuda.is_available():
+    DEVICE = "cuda:0"
+else:
+    DEVICE = "cpu"
 
 # Lazy-loaded model singleton — initialized on first call to predict_images()
 _model = None
@@ -65,7 +74,7 @@ def predict_images(node, color_msg):
     # processed images format: [((x1,y1), (x2,y2)), ...]
 
     # Run prediction on the decoded numpy array (single frame)
-    results = model.predict(img, agnostic_nms=True, verbose=False, conf=CONF_THRESH)[0]
+    results = model.predict(img, agnostic_nms=True, verbose=False, conf=CONF_THRESH, imgsz=IMGSZ, device=DEVICE)[0]
     output_img = img.copy()
 
     if results.masks is None or len(results.boxes) == 0:

@@ -27,6 +27,9 @@ OUTPUT_TOPIC = "/image_processor/tagged_image"
 SYNC_QUEUE_SIZE = 10
 SYNC_SLOP = 0.1  # Max time difference (seconds) between matched frames
 
+# Publish every Nth synchronized frame (1 = publish all)
+PUBLISH_EVERY_N = 5
+
 
 class ImageProcessor(Node):
 
@@ -38,6 +41,9 @@ class ImageProcessor(Node):
         # Cache for optional metadata
         self.latest_gps = None
         self.latest_imu = None
+
+        # Frame counter for throttling
+        self._frame_count = 0
 
         # message_filters subscribers for camera streams
         self.color_sub = message_filters.Subscriber(
@@ -85,6 +91,11 @@ class ImageProcessor(Node):
 
     def synchronized_callback(self, color_msg: CompressedImage, depth_msg: CompressedImage):
         """Called when a matching color+depth pair arrives within the slop window."""
+        self._frame_count += 1
+
+        if self._frame_count % PUBLISH_EVERY_N != 0:
+            return
+
         self.get_logger().info(
             f'SYNC: Matched pair — color: {color_msg.header.stamp}, '
             f'depth: {depth_msg.header.stamp}'
