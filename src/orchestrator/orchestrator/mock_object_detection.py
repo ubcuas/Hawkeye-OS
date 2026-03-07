@@ -8,7 +8,7 @@ to simulate a live camera feed for WebRTC streaming.
 
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import CompressedImage
 import cv2
 import numpy as np
 
@@ -18,7 +18,7 @@ class MockObjectDetection(Node):
         super().__init__('mock_object_detection')   
         
         # Publisher for continuous video feed
-        self.image_pub = self.create_publisher(Image, 'color/image_raw/compressed', 10)
+        self.image_pub = self.create_publisher(CompressedImage, 'color/image_raw/compressed', 10)
         
         # Timer for publishing at 30 FPS
         self.timer = self.create_timer(1.0/30.0, self.publish_frame)
@@ -63,23 +63,16 @@ class MockObjectDetection(Node):
                 self.publish_black_frame()
                 return
             
-            # Convert BGR to RGB
-            cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
-            
-            # Get image dimensions
-            height, width, channels = cv_image.shape
-            
-            # Create ROS Image message
-            img_msg = Image()
+            # Encode frame as JPEG (CompressedImage carries JPEG/PNG bytes)
+            _, jpeg_data = cv2.imencode('.jpg', cv_image)
+
+            # Create ROS CompressedImage message
+            img_msg = CompressedImage()
             img_msg.header.stamp = self.get_clock().now().to_msg()
             img_msg.header.frame_id = 'object_detection'
-            img_msg.height = height
-            img_msg.width = width
-            img_msg.encoding = 'rgb8'
-            img_msg.is_bigendian = False
-            img_msg.step = width * channels
-            img_msg.data = cv_image.tobytes()
-            
+            img_msg.format = 'jpeg'
+            img_msg.data = jpeg_data.tobytes()
+
             # Publish image
             self.image_pub.publish(img_msg)
             
@@ -98,17 +91,14 @@ class MockObjectDetection(Node):
     def publish_black_frame(self):
         """Publish a black frame when no video available"""
         black_image = np.zeros((480, 640, 3), dtype=np.uint8)
-        
-        img_msg = Image()
+        _, jpeg_data = cv2.imencode('.jpg', black_image)
+
+        img_msg = CompressedImage()
         img_msg.header.stamp = self.get_clock().now().to_msg()
         img_msg.header.frame_id = 'object_detection'
-        img_msg.height = 480
-        img_msg.width = 640
-        img_msg.encoding = 'rgb8'
-        img_msg.is_bigendian = False
-        img_msg.step = 640 * 3
-        img_msg.data = black_image.tobytes()
-        
+        img_msg.format = 'jpeg'
+        img_msg.data = jpeg_data.tobytes()
+
         self.image_pub.publish(img_msg)
         
         self.frame_count += 1

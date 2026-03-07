@@ -9,6 +9,7 @@ at 1 Hz to simulate infrequent object detection payloads.
 import rclpy
 from rclpy.node import Node
 import numpy as np
+import cv2
 from geometry_msgs.msg import Point32
 from sensor_msgs.msg import CompressedImage
 from hawkeye_msgs.msg import TaggedImage
@@ -60,12 +61,9 @@ class MockTaggedImagePublisher(Node):
         img_msg = CompressedImage()
         img_msg.header.stamp = self.get_clock().now().to_msg()
         img_msg.header.frame_id = "object_detection"
-        img_msg.height = height
-        img_msg.width = width
-        img_msg.encoding = "rgb8"
-        img_msg.is_bigendian = False
-        img_msg.step = width * 3
-        img_msg.data = frame.tobytes()
+        img_msg.format = "jpeg"
+        _, jpeg_data = cv2.imencode(".jpg", frame)
+        img_msg.data = jpeg_data.tobytes()
 
         msg = TaggedImage()
         msg.image_data = img_msg

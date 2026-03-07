@@ -76,7 +76,7 @@ class StreamingNode(Node):
         self.get_logger().info("Subscribed to: color/image_raw/compressed")
         self.get_logger().info("Subscribed to: object_detection/tagged_image")
 
-    def _route_image_to_track(self, msg: Image):
+    def _route_image_to_track(self, msg: CompressedImage):
         """Route incoming images to the current video track"""
         if self.video_track:
             self.video_track.put_image(msg)
@@ -86,11 +86,12 @@ class StreamingNode(Node):
         if not self.data_channel or self.data_channel.readyState != "open":
             return
 
-        img = msg.image_data
-        channels = 3 if img.encoding == "rgb8" else 1
-        frame = np.frombuffer(img.data, dtype=np.uint8).reshape(
-            (img.height, img.width, channels)
-        )
+        # image_data is CompressedImage (JPEG/PNG bytes) — decode first
+        np_arr = np.frombuffer(msg.image_data.data, dtype=np.uint8)
+        frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+        if frame is None:
+            self.get_logger().error("_route_tagged_image: failed to decode CompressedImage")
+            return
         _, jpeg_bytes = cv2.imencode(".jpg", frame)
         image_b64 = base64.b64encode(jpeg_bytes.tobytes()).decode("utf-8")
 
