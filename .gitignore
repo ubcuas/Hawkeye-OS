@@ -7,3 +7,4 @@ received_stream
 log/
 install/
 build/
+venv/

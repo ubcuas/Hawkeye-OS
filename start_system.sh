@@ -161,16 +161,20 @@ open_terminal() {
     fi
 }
 
-echo "  → Starting GCOM server..."
-open_terminal "GCOM Server" "cd '$WORKDIR' && '$VENV_DIR/bin/python3' mock_gcom.py"
+# echo "  → Starting GCOM server..."
+# open_terminal "GCOM Server" "cd '$WORKDIR' && '$VENV_DIR/bin/python3' mock_gcom.py"
+# sleep 1
+
+echo "  → Start Streaming NOde..."
+open_terminal "Object Detection" "cd '$WORKDIR' && $DC exec ros2_workspace bash -c \"source /opt/ros/humble/setup.bash && source install/setup.bash && ros2 run streaming streaming\""
 sleep 1
 
 echo "  → Starting Object Detection..."
 open_terminal "Object Detection" "cd '$WORKDIR' && $DC exec ros2_workspace bash -c \"source /opt/ros/humble/setup.bash && source install/setup.bash && ros2 run orchestrator mock_object_detection\""
 sleep 1
 
-echo "  → Starting Orchestrator..."
-open_terminal "Orchestrator" "cd '$WORKDIR' && $DC exec ros2_workspace bash -c \"source /opt/ros/humble/setup.bash && source install/setup.bash && ros2 run orchestrator orchestrator\""
+# echo "  → Starting Orchestrator..."
+# open_terminal "Orchestrator" "cd '$WORKDIR' && $DC exec ros2_workspace bash -c \"source /opt/ros/humble/setup.bash && source install/setup.bash && ros2 run orchestrator orchestrator\""
 
 echo -e "${GREEN}✓ Terminal windows opened${NC}"
 echo ""
