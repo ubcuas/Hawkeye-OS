@@ -3,6 +3,7 @@ import os
 import rclpy
 from rclpy.node import Node
 from rclpy.executors import SingleThreadedExecutor
+from geometry_msgs.msg import Point32
 from hawkeye_msgs.msg import TaggedImage
 from object_detection.yolo_detection import predict_images
 
@@ -68,6 +69,13 @@ class ObjectDetection(Node):
                 bounding_boxes = predict_images(self, color_msg)
                 self.get_logger().info(f'PROCESS: PREDICTED IMAGES {bounding_boxes}')
 
+                # Convert list of ((x1,y1),(x2,y2)) tuples → flat Point32 list.
+                # Each detection contributes two points: top-left then bottom-right.
+                box_points = []
+                for (x1, y1), (x2, y2) in bounding_boxes:
+                    box_points.append(Point32(x=float(x1), y=float(y1), z=0.0))
+                    box_points.append(Point32(x=float(x2), y=float(y2), z=0.0))
+
                 # Re-publish as annotated TaggedImage, preserving depth + metadata
                 self.process_pub.publish(
                     TaggedImage(
@@ -78,6 +86,7 @@ class ObjectDetection(Node):
                         color_r=0,
                         color_g=0,
                         color_b=0,
+                        bounding_box=box_points,
                         confidence_level=0,
                     )
                 )
