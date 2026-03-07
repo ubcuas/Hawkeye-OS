@@ -17,15 +17,15 @@ ApproximateTimeSynchronizer, and re-publishes them together as a single
 TaggedImage message for downstream consumers (e.g. object_detection).
 """
 
-COLOR_TOPIC = "color/image_raw/compressed"
-DEPTH_TOPIC = "/depth/image_rect_raw/compressed"
+COLOR_TOPIC = "/camera/camera/color/image_raw/compressed"
+DEPTH_TOPIC = "/camera/camera/depth/image_rect_raw/compressed"
 IMU_TOPIC   = "/camera/camera/imu"
 GPS_TOPIC   = "/gps/fix"
 OUTPUT_TOPIC = "/image_processor/tagged_image"
 
 # ApproximateTimeSynchronizer settings
 SYNC_QUEUE_SIZE = 10
-SYNC_SLOP = 0.1  # Max time difference (seconds) between matched frames
+SYNC_SLOP = 1000  # Max time difference (seconds) between matched frames
 
 # Publish every Nth synchronized frame (1 = publish all)
 PUBLISH_EVERY_N = 5
@@ -91,6 +91,7 @@ class ImageProcessor(Node):
 
     def synchronized_callback(self, color_msg: CompressedImage, depth_msg: CompressedImage):
         """Called when a matching color+depth pair arrives within the slop window."""
+        self.get_logger().info("Got image")
         self._frame_count += 1
 
         if self._frame_count % PUBLISH_EVERY_N != 0:
