@@ -104,19 +104,19 @@ To stop the script:
 | Topic | Message Type | Publisher Node | Subscriber Node | Description |
 |---|---|---|---|---|
 | `/depth/image_rect_raw/compressed` | `CompressedImage` | `imaging_realsense` | `object_detection` | Synchronized depth frames from RealSense |
-| `/color/image_raw/compressed` | `CompressedImage` | `imaging_realsense` | `object_detection` | Synchronized color frames from RealSense |
+| `color/image_raw/compressed` | `CompressedImage` | `imaging_realsense` | `object_detection` | Synchronized color frames from RealSense |
 | `/camera/camera/color/image_raw` | `Image` | `imaging_realsense` | `image_processor` | Raw color image from RealSense |
 | `/camera/camera/imu` | `Imu` | `imaging_realsense` | `image_processor` | IMU data from RealSense |
 | `/gps/fix` | `NavSatFix` | External / MAVLink | `image_processor` | GPS fix data |
-| `object_detection/image` | `Image` | `object_detection` / `image_processor` | `orchestrator`, `streaming` | Processed image output from object detection |
+| `color/image_raw/compressed` | `Image` | `object_detection` / `image_processor` | `orchestrator`, `streaming` | Processed image output from object detection |
 | `object_detection/tagged_image` | `TaggedImage` | `image_processor` | `streaming` | Image with bounding box and detection metadata |
 
 ### Published Topics
 
 | Topic | Message Type | Publisher Node | Description |
 |---|---|---|---|
-| `/object_detection/image` | `CompressedImage` | `object_detection` | Detection results published downstream |
-| `object_detection/image` | `Image` | `image_processor` | Forwarded image for streaming/orchestration |
+| `/color/image_raw/compressed` | `CompressedImage` | `object_detection` | Detection results published downstream |
+| `color/image_raw/compressed` | `Image` | `image_processor` | Forwarded image for streaming/orchestration |
 | `object_detection/tagged_image` | `TaggedImage` | `image_processor` | Tagged image with color, bounding box, confidence |
 | `/detections` | `String` | `image_processor` | Raw detection string output |
 

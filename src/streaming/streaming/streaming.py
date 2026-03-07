@@ -14,7 +14,7 @@ from aiortc import (
 from aiortc.sdp import candidate_from_sdp
 from rclpy.executors import SingleThreadedExecutor
 from rclpy.node import Node
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, CompressedImage
 
 from hawkeye_msgs.msg import TaggedImage
 from streaming.constants import WEBRTC_SIGNALING_URL
@@ -57,7 +57,7 @@ class StreamingNode(Node):
         # Subscribe to video feed from object detection
         # Use a routing method so we can swap tracks without recreating the subscription
         self.image_subscription = self.create_subscription(
-            Image, "object_detection/image", self._route_image_to_track, 10
+            CompressedImage, "color/image_raw/compressed", self._route_image_to_track, 10
         )
 
         # Subscribe to tagged images from object detection
@@ -73,7 +73,7 @@ class StreamingNode(Node):
 
         self.get_logger().info("Streaming node initialized")
         self.get_logger().info(f"Signaling server URL: {self.signaling_url}")
-        self.get_logger().info("Subscribed to: object_detection/image")
+        self.get_logger().info("Subscribed to: color/image_raw/compressed")
         self.get_logger().info("Subscribed to: object_detection/tagged_image")
 
     def _route_image_to_track(self, msg: Image):

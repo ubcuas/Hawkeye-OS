@@ -17,7 +17,7 @@ ApproximateTimeSynchronizer, and re-publishes them together as a single
 TaggedImage message for downstream consumers (e.g. object_detection).
 """
 
-COLOR_TOPIC = "/color/image_raw/compressed"
+COLOR_TOPIC = "color/image_raw/compressed"
 DEPTH_TOPIC = "/depth/image_rect_raw/compressed"
 IMU_TOPIC   = "/camera/camera/imu"
 GPS_TOPIC   = "/gps/fix"

@@ -10,7 +10,7 @@ import rclpy
 from rclpy.node import Node
 import numpy as np
 from geometry_msgs.msg import Point32
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import CompressedImage
 from hawkeye_msgs.msg import TaggedImage
 
 
@@ -57,7 +57,7 @@ class MockTaggedImagePublisher(Node):
         frame = np.zeros((height, width, 3), dtype=np.uint8)
         frame[:, :] = [r, g, b]
 
-        img_msg = Image()
+        img_msg = CompressedImage()
         img_msg.header.stamp = self.get_clock().now().to_msg()
         img_msg.header.frame_id = "object_detection"
         img_msg.height = height

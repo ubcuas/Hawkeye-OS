@@ -28,20 +28,20 @@ def generate_launch_description():
         }.items()
     )
     
-    # Image processor node
-    # image_processor = Node(
-    #     package='imaging_realsense',
-    #     executable='image_processor',
-    #     name='image_processor',
-    #     output='screen',
-    # )
+    #Image processor node
+    image_processor = Node(
+        package='imaging_realsense',
+        executable='image_processor',
+        name='image_processor',
+        output='screen',
+    )
 
-    # streaming = Node(
-    #     package='streaming',
-    #     executable='streaming',
-    #     name='streaming',
-    #     output='screen',
-    # )
+    streaming = Node(
+        package='streaming',
+        executable='streaming',
+        name='streaming',
+        output='screen',
+    )
 
     object_detection = Node(
         package='object_detection',
@@ -52,7 +52,7 @@ def generate_launch_description():
     
     return LaunchDescription([
         realsense_launch,
-        # image_processor,
+        image_processor,
         object_detection, 
-        # streaming,
+        streaming,
     ])

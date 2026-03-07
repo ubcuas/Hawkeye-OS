@@ -11,7 +11,7 @@ def generate_launch_description():
         name='mock_object_detection',
         output='screen',
         parameters=[
-            {'object_detection_topic': 'object_detection/image'}
+            {'object_detection_topic': 'color/image_raw/compressed'}
         ]
     )
 
@@ -21,7 +21,7 @@ def generate_launch_description():
         name='streaming',
         output='screen',
         parameters=[
-            {'object_detection_topic': 'object_detection/image'}
+            {'object_detection_topic': 'color/image_raw/compressed'}
         ]
     )
 
