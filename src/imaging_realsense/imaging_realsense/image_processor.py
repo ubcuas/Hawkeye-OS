@@ -94,16 +94,15 @@ class ImageProcessor(Node):
 
     def synchronized_callback(self, color_msg: CompressedImage, depth_msg: Image):
         """Called when a matching color+depth pair arrives within the slop window."""
-        self.get_logger().info("Got image")
         self._frame_count += 1
 
         if self._frame_count % PUBLISH_EVERY_N != 0:
             return
 
-        self.get_logger().info(
-            f'SYNC: Matched pair — color: {color_msg.header.stamp}, '
-            f'depth: {depth_msg.header.stamp}'
-        )
+        # self.get_logger().info(
+        #     f'SYNC: Matched pair — color: {color_msg.header.stamp}, '
+        #     f'depth: {depth_msg.header.stamp}'
+        # )
 
         # Convert raw 16UC1 depth Image → PNG-encoded CompressedImage
         # (JPEG can't encode 16-bit; PNG supports it natively and losslessly)
