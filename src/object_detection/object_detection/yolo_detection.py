@@ -1,9 +1,21 @@
-from ultralytics import YOLOE
 import cv2
 import numpy as np
 import torch
 from rclpy.node import Node
 import os
+
+# --- PyTorch 2.6 compatibility ---
+# PyTorch 2.6+ defaults torch.load(weights_only=True) which blocks loading
+# YOLOE checkpoints containing custom classes (YOLOESegModel, etc.).
+# Ultralytics calls torch.load internally in YOLOE(), set_classes(), and
+# predict(), so we must patch the default globally.
+_original_torch_load = torch.load
+def _patched_torch_load(*args, **kwargs):
+    kwargs.setdefault("weights_only", False)
+    return _original_torch_load(*args, **kwargs)
+torch.load = _patched_torch_load
+
+from ultralytics import YOLOE
 
 # --- Configuration ---
 MODEL_PATH = "/ros2_ws/src/object_detection/yoloe-26x-seg.pt"
