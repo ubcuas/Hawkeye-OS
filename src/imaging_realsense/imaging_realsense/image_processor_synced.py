@@ -29,7 +29,7 @@ class ImageProcessorSynced(Node):
         self.image_sub = Subscriber(
             self,
             CompressedImage,
-            '/camera/cameracolor/image_raw/compressed'
+            '/camera/camera/color/image_raw/compressed'
         )
         
         self.gps_sub = Subscriber(

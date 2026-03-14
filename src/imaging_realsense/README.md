@@ -35,7 +35,7 @@ source install/setup.bash
 Subscribes to official RealSense topics and processes data
 
 **Subscribes:**
-- `/camera/cameracolor/image_raw/compressed` (sensor_msgs/CompressedImage)
+- `/camera/camera/color/image_raw/compressed` (sensor_msgs/CompressedImage)
 - `/camera/camera/imu` (sensor_msgs/Imu)
 - `/gps/fix` (sensor_msgs/NavSatFix) - external GPS
 
@@ -66,7 +66,7 @@ ros2 run imaging_realsense image_processor
 ## Topics Reference
 
 ### Official RealSense Topics
-- `/camera/cameracolor/image_raw/compressed` - Compressed RGB images
+- `/camera/camera/color/image_raw/compressed` - Compressed RGB images
 - `/camera/camera/depth/image_rect_raw` - Depth images
 - `/camera/camera/imu` - Combined gyro + accel
 - `/camera/camera/aligned_depth_to_color/image_raw` - Depth aligned to color

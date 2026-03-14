@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 
-import cv2
-import numpy as np
 import rclpy
 import message_filters
 from rclpy.node import Node
 from rclpy.qos import QoSPresetProfiles
-from sensor_msgs.msg import CompressedImage, Image, Imu
+from sensor_msgs.msg import CompressedImage, Imu
 from sensor_msgs.msg import NavSatFix
 from hawkeye_msgs.msg import TaggedImage
 
@@ -20,8 +18,7 @@ TaggedImage message for downstream consumers (e.g. object_detection).
 """
 
 COLOR_TOPIC = "/camera/camera/color/image_raw/compressed"
-# Depth uses raw Image — /compressed fails because JPEG can't encode 16UC1 (16-bit depth)
-DEPTH_TOPIC = "/camera/camera/depth/image_rect_raw"
+DEPTH_TOPIC = "/camera/camera/aligned_depth_to_color/image_raw/compressedDepth"
 IMU_TOPIC   = "/camera/camera/imu"
 GPS_TOPIC   = "/gps/fix"
 OUTPUT_TOPIC = "/image_processor/tagged_image"
@@ -53,7 +50,7 @@ class ImageProcessor(Node):
             self, CompressedImage, COLOR_TOPIC, qos_profile=sensor_qos
         )
         self.depth_sub = message_filters.Subscriber(
-            self, Image, DEPTH_TOPIC, qos_profile=sensor_qos
+            self, CompressedImage, DEPTH_TOPIC, qos_profile=sensor_qos
         )
 
         # Optional metadata subscriptions (regular, non-synchronized)
@@ -92,32 +89,16 @@ class ImageProcessor(Node):
         self.get_logger().info(f'Publishing TaggedImage to: {OUTPUT_TOPIC}')
         self.get_logger().info(f'Sync slop: {SYNC_SLOP}s')
 
-    def synchronized_callback(self, color_msg: CompressedImage, depth_msg: Image):
+    def synchronized_callback(self, color_msg: CompressedImage, depth_msg: CompressedImage):
         """Called when a matching color+depth pair arrives within the slop window."""
         self._frame_count += 1
 
         if self._frame_count % PUBLISH_EVERY_N != 0:
             return
 
-        # self.get_logger().info(
-        #     f'SYNC: Matched pair — color: {color_msg.header.stamp}, '
-        #     f'depth: {depth_msg.header.stamp}'
-        # )
-
-        # Convert raw 16UC1 depth Image → PNG-encoded CompressedImage
-        # (JPEG can't encode 16-bit; PNG supports it natively and losslessly)
-        depth_compressed = CompressedImage()
-        depth_compressed.header = depth_msg.header
-        depth_compressed.format = 'png'
-        depth_frame = np.frombuffer(depth_msg.data, dtype=np.uint16).reshape(
-            (depth_msg.height, depth_msg.width)
-        )
-        _, png_bytes = cv2.imencode('.png', depth_frame)
-        depth_compressed.data = png_bytes.tobytes()
-
         tagged = TaggedImage()
         tagged.image_data = color_msg
-        tagged.depth_data = depth_compressed
+        tagged.depth_data = depth_msg
 
         if self.latest_imu is not None:
             tagged.imu_data = self.latest_imu
