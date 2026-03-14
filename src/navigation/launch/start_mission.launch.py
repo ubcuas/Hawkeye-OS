@@ -12,7 +12,7 @@ def generate_launch_description():
     # Define the MAVROS connection URL (default to SITL/Sim)
     fcu_url_arg = DeclareLaunchArgument(
         'fcu_url',
-        default_value='tcp://host.docker.internal:5790', 
+        default_value='tcp://host.docker.internal:14551', 
         description='URL to the MAVLink stream'
     )
 
