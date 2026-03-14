@@ -21,12 +21,18 @@ from dataclasses import dataclass
 @dataclass
 class ServoCommand:
     """Custom type for servo commands."""
-    servo_num: int
-    pwm_value: int
+
+    servo_num: float
+    pwm_value: float
+    count: float
+    range_start: float
+    range_end: float
+    speed: float
 
     @classmethod
-    def from_array(cls, msg: Float32MultiArray) -> 'ServoCommand':
+    def from_array(cls, msg: Float32MultiArray) -> "ServoCommand":
         return cls(servo_num=int(msg.data[0]), pwm_value=int(msg.data[1]))
+
 
 # ==========================
 # Tunable parameters
@@ -106,6 +112,12 @@ class ArduPilotNode(Node):
             Float32MultiArray,
             "/drone/set_servo",
             self.command_set_servo_water_cb,
+            qos_reliable,
+        )
+        self.cmd_set_servo_repeat = self.create_subscription(
+            Float32MultiArray,
+            "/drone/set_servo_repeat",
+            self.command_set_servo_repeat_cb,
             qos_reliable,
         )
 
@@ -366,13 +378,21 @@ class ArduPilotNode(Node):
         Callback to set a servo value via MAVROS.
         msg.data[0]: Servo number (e.g. 9 for AUX1)
         msg.data[1]: PWM value (e.g. 1000-2000)
+        msg.data[2]: Count (ignore)
+        msg.data[3]: range_start (ignore)
+        msg.data[4]: range_end (ignore)
+        msg.data[5]: Speed (ignore)
         """
         cmd = ServoCommand.from_array(msg)
 
-        self.get_logger().info(f"RECEIVED SERVO COMMAND: servo={cmd.servo_num}, pwm={cmd.pwm_value}")
+        self.get_logger().info(
+            f"RECEIVED SERVO COMMAND: servo={cmd.servo_num}, pwm={cmd.pwm_value}"
+        )
 
         if not self.servo_client.service_is_ready():
-            self.get_logger().warn("MAVROS servo service not available - command logged only")
+            self.get_logger().warn(
+                "MAVROS servo service not available - command logged only"
+            )
             return
 
         req = CommandLong.Request()
@@ -382,10 +402,61 @@ class ArduPilotNode(Node):
         req.param1 = float(cmd.servo_num)
         req.param2 = float(cmd.pwm_value)
 
-        self.get_logger().info(f"Sending to MAVROS: Setting servo {cmd.servo_num} to PWM {cmd.pwm_value}")
+        self.get_logger().info(
+            f"Sending to MAVROS: Setting servo {cmd.servo_num} to PWM {cmd.pwm_value}"
+        )
 
         future = self.servo_client.call_async(req)
         future.add_done_callback(self.servo_response_cb)
+
+    def command_set_servo_repeat_cb(self, msg: Float32MultiArray):
+        """
+        Callback to set a servo value via MAVROS.
+        msg.data[0]: Servo number (e.g. 9 for AUX1)
+        msg.data[1]: PWM value (ignore)
+        msg.data[2]: Count (amount of times to flap ts)
+        msg.data[3]: range_start (degrees,internally calculate pwm)
+        msg.data[4]: range_end (degrees,internally calculate pwm)
+        msg.data[5]: Speed (internally calculated flap period)
+        """
+        cmd = ServoCommand.from_array(msg)
+
+        self.get_logger().info(
+            f"RECEIVED SERVO COMMAND: servo={cmd.servo_num}, count={cmd.count}, range = {cmd.range_start}, {cmd.range_end}, speed={cmd.speed}"
+        )
+
+        if not self.servo_client.service_is_ready():
+            self.get_logger().warn(
+                "MAVROS servo service not available - command logged only"
+            )
+            return
+
+        time_for_one = 1 / cmd.speed
+        increments = (cmd.range_end - cmd.range_start) / (time_for_one / 0.05)
+        start_range = self.degrees_to_pwm(cmd.range_start)
+        end_range = self.degrees_to_pwm(cmd.range_end)
+        for i in range(cmd.count):
+            while start_range < end_range:
+                start_range_msg = Float32MultiArray
+                start_range_msg.data = [cmd.servo_num, start_range, 0, 0, 0]
+                self.command_set_servo_water_cb(msg)
+                start_range += increments
+
+    def degrees_to_pwm(self, target_angle: float) -> float:
+        """
+        Converts degrees to a PWM value
+        """
+        min_angle = 0.0
+        max_angle = 180.0
+        min_pwm = 1000.0
+        max_pwm = 2000.0
+
+        safe_angle = max(min_angle, min(target_angle, max_angle))
+
+        proportion = (safe_angle - min_angle) / (max_angle - min_angle)
+        pwm = min_pwm + (proportion * (max_pwm - min_pwm))
+
+        return pwm
 
     def servo_response_cb(self, future):
         try:
