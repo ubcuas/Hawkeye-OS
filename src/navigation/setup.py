@@ -26,6 +26,7 @@ setup(
         'console_scripts': [
             'navigation = navigation.navigation:main',
             'test_servo = navigation.test_servo:test_servo',
+            'test_nav = navigation.test_nav:main',
         ],
     },
 )

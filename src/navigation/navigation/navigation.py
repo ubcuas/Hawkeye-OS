@@ -154,18 +154,35 @@ class ArduPilotNode(Node):
         self.have_pose = True
         self.current_pose = msg
 
-    # convert relative delta command from SLAM into an absolute target
+    def _yaw_from_pose(self, pose: PoseStamped) -> float:
+        qx = float(pose.pose.orientation.x)
+        qy = float(pose.pose.orientation.y)
+        qz = float(pose.pose.orientation.z)
+        qw = float(pose.pose.orientation.w)
+
+        siny_cosp = 2.0 * (qw * qz + qx * qy)
+        cosy_cosp = 1.0 - 2.0 * (qy * qy + qz * qz)
+        return math.atan2(siny_cosp, cosy_cosp)
+
+    # convert relative delta command from object detection into an absolute target
     def delta_to_target_pose(self, delta_msg: PoseStamped) -> PoseStamped:
         target = PoseStamped()
 
-        dx = float(delta_msg.pose.position.x)
-        dy = float(delta_msg.pose.position.y)
-        dz = float(delta_msg.pose.position.z)
+        # Relative position of the object in the drone's body frame
+        dx_body = float(delta_msg.pose.position.x)
+        dy_body = float(delta_msg.pose.position.y)
 
-        # Absolute target = reference position + delta
-        target.pose.position.x = self.reference_pose.pose.position.x + dx
-        target.pose.position.y = self.reference_pose.pose.position.y + dy
-        target.pose.position.z = self.reference_pose.pose.position.z + dz
+        yaw = self._yaw_from_pose(self.reference_pose)
+        cos_yaw = math.cos(yaw)
+        sin_yaw = math.sin(yaw)
+
+        dx_world = cos_yaw * dx_body - sin_yaw * dy_body
+        dy_world = sin_yaw * dx_body + cos_yaw * dy_body
+
+        # Absolute "object" position = reference position + rotated horizontal delta
+        target.pose.position.x = self.reference_pose.pose.position.x + dx_world
+        target.pose.position.y = self.reference_pose.pose.position.y + dy_world
+        target.pose.position.z = self.reference_pose.pose.position.z
 
         # Keep the reference orientation
         target.pose.orientation.x = self.reference_pose.pose.orientation.x
@@ -246,7 +263,7 @@ class ArduPilotNode(Node):
             self.get_logger().info(
                 f"Mission terminating at "
                 f"({cx:.2f}, {cy:.2f}, {cz:.2f}) "
-                f"| error={dist_to_obj:.3f}m at mission termination"
+                f"| distance={dist_to_obj:.3f}m at mission termination"
             )
 
             # Cancel mission
