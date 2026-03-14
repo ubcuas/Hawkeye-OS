@@ -24,6 +24,9 @@ RUN apt-get update && apt-get install -y \
     python3-colcon-common-extensions \
     libgl1 \
     libglib2.0-0 \
+    libprotobuf-dev \
+    protobuf-compiler \
+    libopencv-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install development tools
@@ -52,8 +55,8 @@ RUN apt-get update && apt-get install -y \
     ros-${ROS_DISTRO}-message-filters \
     && rm -rf /var/lib/apt/lists/*
 
-# Create workspace
-RUN mkdir -p /ros2_ws/src /ros2_ws/build /ros2_ws/install 
+# Create workspace with build and install directories
+RUN mkdir -p /ros2_ws/src /ros2_ws/build /ros2_ws/install
 WORKDIR /ros2_ws
 
 COPY ./setup_env.sh /ros2_ws/setup_env.sh
