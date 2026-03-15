@@ -31,7 +31,7 @@ CLASSES = [
 
 # Pick inference device
 if USE_CUDA and torch.cuda.is_available():
-    DEVICE = "cuda:0"
+    DEVICE = "cuda"
 else:
     DEVICE = "cpu"
 
@@ -86,6 +86,7 @@ def predict_images(node, color_msg):
     # processed images format: [((x1,y1), (x2,y2)), ...]
 
     # Run prediction on the decoded numpy array (single frame)
+    node.get_logger().info(DEVICE)
     results = model.predict(img, agnostic_nms=True, verbose=False, conf=CONF_THRESH, imgsz=IMGSZ, device=DEVICE)[0]
     output_img = img.copy()
 

@@ -109,9 +109,18 @@ class StreamingNode(Node):
         _, jpeg_bytes = cv2.imencode(".jpg", frame)
         image_b64 = base64.b64encode(jpeg_bytes.tobytes()).decode("utf-8")
 
+        np_arr = np.frombuffer(msg.depth_data.data, dtype=np.uint8)
+        frame = cv2.imdecode(np_arr, cv2.IMREAD_ANYDEPTH)
+        if frame is None:
+            self.get_logger().error("_route_tagged_image: failed to decode CompressedImage")
+            return
+        _, jpeg_bytes = cv2.imencode(".jpg", frame)
+        image_b64 = base64.b64encode(jpeg_bytes.tobytes()).decode("utf-8")
+
         payload = json.dumps(
             {
                 "image_data": image_b64,
+
                 "color_detection": [msg.color_r, msg.color_g, msg.color_b],
                 "bounding_box": [[pt.x, pt.y] for pt in msg.bounding_box],
                 "confidence_level": msg.confidence_level,
