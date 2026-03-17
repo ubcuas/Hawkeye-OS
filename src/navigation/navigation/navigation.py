@@ -436,11 +436,18 @@ class ArduPilotNode(Node):
         start_range = self.degrees_to_pwm(cmd.range_start)
         end_range = self.degrees_to_pwm(cmd.range_end)
         for i in range(cmd.count):
-            while start_range < end_range:
-                start_range_msg = Float32MultiArray
-                start_range_msg.data = [cmd.servo_num, start_range, 0, 0, 0]
+            cur_range = start_range
+            while cur_range < end_range:
+                cur_range_msg = Float32MultiArray
+                cur_range_msg.data = [cmd.servo_num, cur_range, 0, 0, 0]
                 self.command_set_servo_water_cb(msg)
-                start_range += increments
+                cur_range += increments
+
+            while cur_range > start_range:
+                cur_range_msg = Float32MultiArray
+                cur_range_msg.data = [cmd.servo_num, cur_range, 0, 0, 0]
+                self.command_set_servo_water_cb(msg)
+                cur_range -= increments
 
     def degrees_to_pwm(self, target_angle: float) -> float:
         """
