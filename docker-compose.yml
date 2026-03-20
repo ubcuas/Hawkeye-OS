@@ -35,10 +35,6 @@ services:
       - ./src:/ros2_ws/src
       - ./test_images:/ros2_ws/test_images
       
-      # FIX 3: Restored the CUDA library mounts
-      - /usr/local/cuda:/usr/local/cuda:ro
-      - /usr/lib/aarch64-linux-gnu:/usr/lib/aarch64-linux-gnu:ro
-      
     working_dir: /ros2_ws
     command: bash -lc "sudo chown -R ros:ros /ros2_ws/build /ros2_ws/install && colcon build --packages-skip imaging && source install/setup.bash && tail -f /dev/null"
     network_mode: host

@@ -18,6 +18,7 @@ as an annotated TaggedImage.
 
 TAGGED_IMAGE_TOPIC = "/image_processor/tagged_image"
 PROCESSED_TOPIC = "/object_detection/tagged_image"
+PROCESS_EVERY_N = 15
 
 
 class ObjectDetection(Node):
@@ -27,6 +28,8 @@ class ObjectDetection(Node):
 
         # Async queue — incoming TaggedImage messages are enqueued here
         self.image_queue = asyncio.Queue()
+
+        self.frame_count = 0
 
         # Subscribe to the combined TaggedImage from image_processor
         self.tagged_image_sub = self.create_subscription(
@@ -49,17 +52,24 @@ class ObjectDetection(Node):
 
     def tagged_image_callback(self, msg: TaggedImage):
         """Enqueue incoming TaggedImage for async YOLO processing."""
-        self.get_logger().info('RECV: Got TaggedImage — enqueueing for detection')
-        asyncio.run_coroutine_threadsafe(
-            self.image_queue.put(msg),
-            self.loop,
-        )
+        self.frame_count += 1
+        if self.frame_count % PROCESS_EVERY_N != 0:
+            return
+        else:
+            self.get_logger().info('RECV: Got TaggedImage — enqueueing for detection')
+            asyncio.run_coroutine_threadsafe(
+                self.image_queue.put(msg),
+                self.loop,
+            )
 
     async def process_images(self):
         """Dequeue TaggedImage messages and run YOLO detection on the color frame."""
         while rclpy.ok():
             self.get_logger().info('PROCESS: Waiting for TaggedImage...')
             tagged_msg: TaggedImage = await self.image_queue.get()
+            
+
+
 
             color_msg = tagged_msg.image_data
             depth_msg = tagged_msg.depth_data
