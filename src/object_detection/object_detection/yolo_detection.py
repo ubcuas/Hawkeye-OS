@@ -9,11 +9,11 @@ import os
 # YOLOE checkpoints containing custom classes (YOLOESegModel, etc.).
 # Ultralytics calls torch.load internally in YOLOE(), set_classes(), and
 # predict(), so we must patch the default globally.
-_original_torch_load = torch.load
-def _patched_torch_load(*args, **kwargs):
-    kwargs.setdefault("weights_only", False)
-    return _original_torch_load(*args, **kwargs)
-torch.load = _patched_torch_load
+# _original_torch_load = torch.load
+# def _patched_torch_load(*args, **kwargs):
+#     kwargs.setdefault("weights_only", False)
+#     return _original_torch_load(*args, **kwargs)
+# torch.load = _patched_torch_load
 
 from ultralytics import YOLOE
 
@@ -23,6 +23,7 @@ CONF_THRESH = 0.25
 IMGSZ = 640
 USE_CUDA = True
 VISUALIZE = False
+DEBUG = True
 
 CLASSES = [
     "red circle", "blue circle", "green circle",
@@ -87,10 +88,13 @@ def predict_images(node, color_msg):
 
     # Run prediction on the decoded numpy array (single frame)
     node.get_logger().info(DEVICE)
-    results = model.predict(img, agnostic_nms=True, verbose=False, conf=CONF_THRESH, imgsz=IMGSZ, device=DEVICE)[0]
+    results = model.predict(img, agnostic_nms=True, half=True, verbose=False, conf=CONF_THRESH, imgsz=IMGSZ, device=DEVICE)[0]
     output_img = img.copy()
 
-    if results.masks is None or len(results.boxes) == 0:
+    if DEBUG:
+        node.get_logger().info("DEBUG: detection found")
+        processed_images.append(((1, 1), (3, 3)))
+    elif results.masks is None or len(results.boxes) == 0:
         node.get_logger().info("No detections found.")
     else:
         node.get_logger().info(f"Found {len(results.boxes)} detections.")

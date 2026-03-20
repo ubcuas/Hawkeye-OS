@@ -100,27 +100,38 @@ class StreamingNode(Node):
 
         self.get_logger().info("GOT TO STREAMING!")
 
-        # image_data is CompressedImage (JPEG/PNG bytes) — decode first
-        np_arr = np.frombuffer(msg.image_data.data, dtype=np.uint8)
-        frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-        if frame is None:
-            self.get_logger().error("_route_tagged_image: failed to decode CompressedImage")
+        if not msg.image_data.data:
+            self.get_logger().warn("Empty color image data. Skipping.")
             return
-        _, jpeg_bytes = cv2.imencode(".jpg", frame)
-        image_b64 = base64.b64encode(jpeg_bytes.tobytes()).decode("utf-8")
 
-        np_arr = np.frombuffer(msg.depth_data.data, dtype=np.uint8)
-        frame = cv2.imdecode(np_arr, cv2.IMREAD_ANYDEPTH)
-        if frame is None:
-            self.get_logger().error("_route_tagged_image: failed to decode CompressedImage")
+        color_arr = np.frombuffer(msg.image_data.data, dtype=np.uint8)
+        if color_arr.size == 0:
             return
-        _, jpeg_bytes = cv2.imencode(".jpg", frame)
-        image_b64 = base64.b64encode(jpeg_bytes.tobytes()).decode("utf-8")
 
+        color_frame = cv2.imdecode(color_arr, cv2.IMREAD_COLOR)
+        if color_frame is None:
+            self.get_logger().error("Failed to decode color CompressedImage")
+            return
+            
+        _, color_jpeg = cv2.imencode(".jpg", color_frame)
+        color_b64 = base64.b64encode(color_jpeg.tobytes()).decode("utf-8")
+
+        depth_b64 = ""
+        if msg.depth_data.data:
+            depth_arr = np.frombuffer(msg.depth_data.data, dtype=np.uint8)
+            if depth_arr.size > 0:
+                depth_frame = cv2.imdecode(depth_arr, cv2.IMREAD_ANYDEPTH)
+                if depth_frame is not None:
+                    # Using PNG for depth to preserve 16-bit values losslessly
+                    _, depth_png = cv2.imencode(".png", depth_frame)
+                    depth_b64 = base64.b64encode(depth_png.tobytes()).decode("utf-8")
+            else:
+                self.get_logger().warn("malformed depth data. Skipping.")
+        # --- 3. SEND PAYLOAD ---
         payload = json.dumps(
             {
-                "image_data": image_b64,
-
+                "image_data": color_b64,       # Now sending the actual color image
+                "depth_data": depth_b64,       # Added a new key for the depth image
                 "color_detection": [msg.color_r, msg.color_g, msg.color_b],
                 "bounding_box": [[pt.x, pt.y] for pt in msg.bounding_box],
                 "confidence_level": msg.confidence_level,
