@@ -25,6 +25,7 @@ RUN apt-get update && apt-get install -y curl gnupg2 lsb-release \
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid $USER_GID $USERNAME \
     && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
+    && usermod -aG root,video,render $USERNAME \
     && apt-get update -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true \
     && apt-get install -y --allow-unauthenticated sudo \
     && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \

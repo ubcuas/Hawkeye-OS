@@ -211,7 +211,7 @@ class StreamingNode(Node):
             )
 
             # Create data channel
-            self.data_channel = pc.createDataChannel("oldc_images")
+            self.data_channel = pc.createDataChannel("odlc_images")
             self.get_logger().info("Data channel created")
 
             @self.data_channel.on("open")

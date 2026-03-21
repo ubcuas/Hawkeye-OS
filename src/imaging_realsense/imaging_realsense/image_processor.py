@@ -35,7 +35,7 @@ SYNC_QUEUE_SIZE = 10
 SYNC_SLOP = 1000  # Max time difference (seconds) between matched frames
 
 # Publish every Nth synchronized frame (1 = publish all)
-PUBLISH_EVERY_N = 5
+PUBLISH_EVERY_N = 1
 
 
 class ImageProcessor(Node):
