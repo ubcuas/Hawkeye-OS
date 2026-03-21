@@ -23,7 +23,7 @@ CONF_THRESH = 0.25
 IMGSZ = 640
 USE_CUDA = True
 VISUALIZE = False
-DEBUG = True
+DEBUG = False
 
 CLASSES = [
     "red circle", "blue circle", "green circle",
@@ -88,14 +88,15 @@ def predict_images(node, color_msg):
 
     # Run prediction on the decoded numpy array (single frame)
     node.get_logger().info(DEVICE)
-    results = model.predict(img, agnostic_nms=True, half=True, verbose=False, conf=CONF_THRESH, imgsz=IMGSZ, device=DEVICE)[0]
+    results = model.predict(img, agnostic_nms=True, verbose=False, conf=CONF_THRESH, imgsz=IMGSZ, device=DEVICE)[0]
     output_img = img.copy()
 
     if DEBUG:
         node.get_logger().info("DEBUG: detection found")
         processed_images.append(((1, 1), (3, 3)))
     elif results.masks is None or len(results.boxes) == 0:
-        node.get_logger().info("No detections found.")
+        # node.get_logger().info("No detections found.")
+        pass
     else:
         node.get_logger().info(f"Found {len(results.boxes)} detections.")
 
@@ -119,7 +120,10 @@ def predict_images(node, color_msg):
                 f"Detection {i}: {cls_name} | {color_name} | Conf: {conf:.2f} | "
                 f"BBox: ({x1}, {y1}) -> ({x2}, {y2})"
             )
-            processed_images.append(((x1, y1), (x2, y2)))
+            processed_images.append((
+                (x1, y1, x2, y2), 
+                conf, 
+                color_name))
 
             # 4. Visualization
             if VISUALIZE:

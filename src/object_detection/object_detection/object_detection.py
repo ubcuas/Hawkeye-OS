@@ -7,6 +7,8 @@ from geometry_msgs.msg import Point32
 from hawkeye_msgs.msg import TaggedImage
 from object_detection.yolo_detection import predict_images
 
+import time
+
 """
 Object Detection node
 
@@ -18,7 +20,7 @@ as an annotated TaggedImage.
 
 TAGGED_IMAGE_TOPIC = "/image_processor/tagged_image"
 PROCESSED_TOPIC = "/object_detection/tagged_image"
-PROCESS_EVERY_N = 15
+PROCESS_EVERY_N = 5
 
 
 class ObjectDetection(Node):
@@ -46,6 +48,9 @@ class ObjectDetection(Node):
             10,
         )
 
+        self.last_time = time.time()
+        self.curr_time = self.last_time
+
         self.get_logger().info('object_detection node started')
         self.get_logger().info(f'Subscribed to TaggedImage: {TAGGED_IMAGE_TOPIC}')
         self.get_logger().info(f'Publishing annotated TaggedImage to: {PROCESSED_TOPIC}')
@@ -65,26 +70,41 @@ class ObjectDetection(Node):
     async def process_images(self):
         """Dequeue TaggedImage messages and run YOLO detection on the color frame."""
         while rclpy.ok():
-            self.get_logger().info('PROCESS: Waiting for TaggedImage...')
-            tagged_msg: TaggedImage = await self.image_queue.get()
+
+            self.curr_time = time.time()
             
-
-
+            #self.get_logger().info('PROCESS: Waiting for TaggedImage...')
+            tagged_msg: TaggedImage = await self.image_queue.get()
 
             color_msg = tagged_msg.image_data
             depth_msg = tagged_msg.depth_data
 
-            self.get_logger().info('PROCESS: Got TaggedImage — running prediction')
+            # self.get_logger().info('PROCESS: Got TaggedImage — running prediction')
             try:
-                bounding_boxes = predict_images(self, color_msg)
-                self.get_logger().info(f'PROCESS: PREDICTED IMAGES {bounding_boxes}')
+                prediction_result = predict_images(self, color_msg)
+                if len(prediction_result) == 0:
+                    continue
+                
+                # only take first prediction
+                # for item in prediction_result[0]:
+                # self.get_logger().info(prediction_result[0])
+                bounding_boxes, conf, color_name = prediction_result[0] 
+
+                self.get_logger().info(f'PROCESS: PREDICTED IMAGES {color_name}')
 
                 # Convert list of ((x1,y1),(x2,y2)) tuples → flat Point32 list.
                 # Each detection contributes two points: top-left then bottom-right.
                 box_points = []
-                for (x1, y1), (x2, y2) in bounding_boxes:
-                    box_points.append(Point32(x=float(x1), y=float(y1), z=0.0))
-                    box_points.append(Point32(x=float(x2), y=float(y2), z=0.0))
+                x1, y1, x2, y2 = bounding_boxes
+                box_points.append(Point32(x=float(x1), y=float(y1), z=0.0))
+                box_points.append(Point32(x=float(x2), y=float(y2), z=0.0))
+
+                color_map = {
+                    "blue": (0, 0, 255),
+                    "green": (0, 255, 0),
+                    "red": (255, 0, 0),
+                }
+                color_rgb = color_map.get(color_name, (1,2,3))
 
                 # Re-publish as annotated TaggedImage, preserving depth + metadata
                 self.process_pub.publish(
@@ -93,16 +113,20 @@ class ObjectDetection(Node):
                         depth_data=depth_msg,
                         imu_data=tagged_msg.imu_data,
                         gps_data=tagged_msg.gps_data,
-                        color_r=0,
-                        color_g=0,
-                        color_b=0,
+                        color_r=color_rgb[0],
+                        color_g=color_rgb[1],
+                        color_b=color_rgb[2],
                         bounding_box=box_points,
-                        confidence_level=0,
+                        confidence_level=conf,
                     )
                 )
 
             except Exception as e:
                 self.get_logger().error(f'PROCESS: Prediction error: {e}')
+
+            time_taken = self.curr_time - self.last_time
+            self.last_time = self.curr_time
+            self.get_logger().info(f"processing time {time_taken}")
 
 
 async def async_main(args=None):
