@@ -1,6 +1,6 @@
+import torch
 import cv2
 import numpy as np
-import torch
 from rclpy.node import Node
 import os
 
