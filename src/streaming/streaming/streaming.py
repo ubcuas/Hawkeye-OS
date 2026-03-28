@@ -63,9 +63,12 @@ class StreamingNode(Node):
         )
 
         # # Subscribe to video feed — mock pipeline (mock_object_detection publishes here)
-        # self.image_subscription = self.create_subscription(
-        #     CompressedImage, "color/image_raw/compressed", self._route_image_to_track, 10
-        # )
+        self.image_subscription = self.create_subscription(
+            CompressedImage,
+            "color/image_raw/compressed",
+            self._route_image_to_track,
+            10,
+        )
 
         # Subscribe to image_processor output — real camera pipeline (rs_hawkeye_launch)
         # image_processor synchronizes color+depth and publishes TaggedImage; we pull the
