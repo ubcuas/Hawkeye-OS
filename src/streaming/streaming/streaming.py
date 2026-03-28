@@ -148,7 +148,7 @@ class StreamingNode(Node):
         _, color_jpeg = cv2.imencode(".jpg", color_frame)
         color_b64 = base64.b64encode(color_jpeg.tobytes()).decode("utf-8")
 
-        depth_b64 = ""
+        depth_b64 = None
         if msg.depth_data.data:
             depth_arr = np.frombuffer(msg.depth_data.data, dtype=np.uint8)
             if depth_arr.size > 0:
