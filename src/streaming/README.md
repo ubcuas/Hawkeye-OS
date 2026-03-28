@@ -4,11 +4,11 @@ The streaming module enables real-time video transmission from the Hawkeye OS ob
 
 ## Overview
 
-This module subscribes to the `object_detection/image` ROS topic and streams the processed video frames to GCOM over a WebRTC peer connection. The streaming is low-latency and works across networks using ICE/STUN for NAT traversal.
+This module subscribes to the `color/image_raw/compressed` ROS topic and streams the processed video frames to GCOM over a WebRTC peer connection. The streaming is low-latency and works across networks using ICE/STUN for NAT traversal.
 
 ## Architecture
 
-- **ROS Integration**: Subscribes to `object_detection/image` topic to receive processed frames
+- **ROS Integration**: Subscribes to `color/image_raw/compressed` topic to receive processed frames
 - **WebRTC Connection**: Establishes peer-to-peer connection for efficient video streaming
 - **Signaling Server**: Uses Socket.IO-based signaling server for WebRTC handshake and ICE candidate exchange
 - **STUN Servers**: Utilizes Google STUN servers for NAT traversal and connection establishment

@@ -6,3 +6,7 @@ services:
       # Keep named volumes for build/install performance (these override the bind mount for these specific dirs)
       - ros2_ws_build:/ros2_ws/build
       - ros2_ws_install:/ros2_ws/install
+    environment:
+      # Prevent ultralytics from trying to pip-install CLIP at runtime
+      - YOLO_AUTOINSTALL=False
+      - YOLO_CONFIG_DIR=/tmp/Ultralytics

@@ -4,7 +4,8 @@ from aiortc.mediastreams import VideoStreamTrack
 from av import VideoFrame
 import numpy as np
 from rclpy.impl.rcutils_logger import RcutilsLogger
-from sensor_msgs.msg import Image
+import cv2
+from sensor_msgs.msg import CompressedImage
 
 class ROSVideoStreamTrack(VideoStreamTrack):
     """
@@ -51,38 +52,37 @@ class ROSVideoStreamTrack(VideoStreamTrack):
 
             return video_frame
     
-    def put_image(self, msg: Image):
+    def put_image(self, msg: CompressedImage):
         """
-        Callback for receiving images from ROS topic.
-        Converts ROS Image message to numpy array and adds to video track queue.
+        Decodes a ROS CompressedImage (JPEG/PNG) and queues it as an RGB numpy
+        array for aiortc to send over WebRTC.
         """
         try:
             self._received_frame_count += 1
 
-            # Convert ROS Image message to numpy array
-            # ROS Image data is in bytes, reshape according to dimensions
-            height = msg.height
-            width = msg.width
-            channels = 3 if msg.encoding == "rgb8" else 1
+            # Decode JPEG/PNG bytes → BGR frame
+            np_arr = np.frombuffer(msg.data, dtype=np.uint8)
+            frame_data = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
-            # Convert bytes to numpy array
-            frame_data = np.frombuffer(msg.data, dtype=np.uint8)
-            frame_data = frame_data.reshape((height, width, channels))
+            if frame_data is None:
+                self.logger.error("put_image: imdecode returned None — invalid JPEG?")
+                return
 
+            # aiortc VideoFrame.from_ndarray expects RGB24
+            frame_data = cv2.cvtColor(frame_data, cv2.COLOR_BGR2RGB)
+            height, width, _ = frame_data.shape
 
             queue_size_before = self.frame_queue.qsize()
             self.frame_queue.put_nowait(frame_data)
             queue_size_after = self.frame_queue.qsize()
 
-            # Log occasionally to track frame flow
             if self._received_frame_count % 90 == 0:
                 self.logger.info(
-                    f"Frame added to video track. Queue: {queue_size_before} -> {queue_size_after}. "
-                    f"Frame size: {height}x{width}x{channels}"
+                    f"Frame queued for WebRTC. Queue: {queue_size_before} -> {queue_size_after}. "
+                    f"Frame size: {height}x{width}"
                 )
 
         except asyncio.QueueFull:
-            # Drop frame if queue is full to prevent blocking
-            pass
+            pass  # Drop frame to avoid blocking
         except Exception as e:
-            self.logger.error(f"Error processing image: {e}")
+            self.logger.error(f"Error processing CompressedImage: {e}")

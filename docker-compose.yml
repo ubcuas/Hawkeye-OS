@@ -8,21 +8,50 @@ services:
     container_name: hawkeye-ros
     stdin_open: true
     tty: true
-    privileged: true  
+    privileged: true
+    
+    # FIX 1: Add groups so the 'ros' user can access the GPU memory manager
+    group_add:
+      - video
+      - render
+      - i2c
+
+    # adding nvidia runtime
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     volumes:
-      - /dev:/dev     
+      # FIX 2: Replaced - /dev:/dev with specific camera paths to avoid breaking NVIDIA runtime
+      - /dev/bus/usb:/dev/bus/usb
+      - /dev/video0:/dev/video0
+      - /dev/video1:/dev/video1
+      - /dev/video2:/dev/video2
+      
       - ./src:/ros2_ws/src
       - ./test_images:/ros2_ws/test_images
+      
     working_dir: /ros2_ws
-    command: bash -lc "sudo chown -R ros:ros /ros2_ws/build /ros2_ws/install && colcon build --packages-skip imaging && source install/setup.bash && tail -f /dev/null"
+    command: bash -lc "sudo chmod 666 /dev/nvmap /dev/nvhost-* && sudo chown -R ros:ros /ros2_ws/build /ros2_ws/install && colcon build --packages-skip imaging && source install/setup.bash && tail -f /dev/null"
     network_mode: host
     environment:
       - DISPLAY=${DISPLAY}
       - ROS_DOMAIN_ID=0
+      - LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/lib/aarch64-linux-gnu:${LD_LIBRARY_PATH}
 
       # Topics
-      - OBJECT_DETECTION_TOPIC=object_detection/image
+      - OBJECT_DETECTION_TOPIC=color/image_raw/compressed
       - IMAGE_REQUEST_TOPIC=image_request
+      - YOLO_AUTOINSTALL=False
+      - YOLO_CONFIG_DIR=/tmp/Ultralytics
+      - PYTHONPATH=/home/ros/.local/lib/python3.10/site-packages:${PYTHONPATH}
+      # nvidia gpu
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
     ipc: host
 volumes:
   ros2_ws_build:

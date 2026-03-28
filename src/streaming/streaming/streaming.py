@@ -21,7 +21,7 @@ from aiortc import (
 )
 
 from aiortc.sdp import candidate_from_sdp
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, CompressedImage
 
 from hawkeye_msgs.msg import TaggedImage
 from streaming.constants import WEBRTC_SIGNALING_URL
@@ -62,10 +62,16 @@ class StreamingNode(Node):
             ]
         )
 
-        # Subscribe to video feed from object detection
-        # Use a routing method so we can swap tracks without recreating the subscription
-        self.image_subscription = self.create_subscription(
-            Image, "object_detection/image", self._route_image_to_track, 10
+        # # Subscribe to video feed — mock pipeline (mock_object_detection publishes here)
+        # self.image_subscription = self.create_subscription(
+        #     CompressedImage, "color/image_raw/compressed", self._route_image_to_track, 10
+        # )
+
+        # Subscribe to image_processor output — real camera pipeline (rs_hawkeye_launch)
+        # image_processor synchronizes color+depth and publishes TaggedImage; we pull the
+        # color frame from it to drive the WebRTC video track.
+        self.image_processor_subscription = self.create_subscription(
+            CompressedImage, "/camera/camera/color/image_raw/compressed", self._route_image_to_track, 10
         )
 
         # Subscribe to logs from other nodes (using /rosout)
@@ -86,12 +92,13 @@ class StreamingNode(Node):
 
         self.get_logger().info("Streaming node initialized")
         self.get_logger().info(f"Signaling server URL: {self.signaling_url}")
-        self.get_logger().info("Subscribed to: object_detection/image")
+        self.get_logger().info("Subscribed to: color/image_raw/compressed (mock)")
+        self.get_logger().info("Subscribed to: /image_processor/tagged_image (real camera)")
         self.get_logger().info("Subscribed to: /rosout")
         self.get_logger().info("Subscribed to: object_detection/tagged_image")
 
-    def _route_image_to_track(self, msg: Image):
-        """Route incoming images to the current video track"""
+    def _route_image_to_track(self, msg: CompressedImage):
+        """Route incoming CompressedImage to the WebRTC video track (mock pipeline)"""
         if self.video_track:
             self.video_track.put_image(msg)
     
@@ -113,22 +120,50 @@ class StreamingNode(Node):
             })
             self.log_data_channel.send(log_message)
 
+    def _route_camera_tagged_image(self, msg: TaggedImage):
+        """Extract color frame from image_processor TaggedImage and send to WebRTC (real camera pipeline)"""
+        if self.video_track and msg.image_data.data:
+            self.video_track.put_image(msg.image_data)
+
     def _route_tagged_image(self, msg: TaggedImage):
         """Forward tagged image and metadata to GCOM via the data channel"""
         if not self.data_channel or self.data_channel.readyState != "open":
             return
 
-        img = msg.image_data
-        channels = 3 if img.encoding == "rgb8" else 1
-        frame = np.frombuffer(img.data, dtype=np.uint8).reshape(
-            (img.height, img.width, channels)
-        )
-        _, jpeg_bytes = cv2.imencode(".jpg", frame)
-        image_b64 = base64.b64encode(jpeg_bytes.tobytes()).decode("utf-8")
+        self.get_logger().info("GOT TO STREAMING!")
 
+        if not msg.image_data.data:
+            self.get_logger().warn("Empty color image data. Skipping.")
+            return
+
+        color_arr = np.frombuffer(msg.image_data.data, dtype=np.uint8)
+        if color_arr.size == 0:
+            return
+
+        color_frame = cv2.imdecode(color_arr, cv2.IMREAD_COLOR)
+        if color_frame is None:
+            self.get_logger().error("Failed to decode color CompressedImage")
+            return
+            
+        _, color_jpeg = cv2.imencode(".jpg", color_frame)
+        color_b64 = base64.b64encode(color_jpeg.tobytes()).decode("utf-8")
+
+        depth_b64 = ""
+        if msg.depth_data.data:
+            depth_arr = np.frombuffer(msg.depth_data.data, dtype=np.uint8)
+            if depth_arr.size > 0:
+                depth_frame = cv2.imdecode(depth_arr, cv2.IMREAD_ANYDEPTH)
+                if depth_frame is not None:
+                    # Using PNG for depth to preserve 16-bit values losslessly
+                    _, depth_png = cv2.imencode(".png", depth_frame)
+                    depth_b64 = base64.b64encode(depth_png.tobytes()).decode("utf-8")
+            else:
+                self.get_logger().warn("malformed depth data. Skipping.")
+        # --- 3. SEND PAYLOAD ---
         payload = json.dumps(
             {
-                "image_data": image_b64,
+                "image_data": color_b64,       # Now sending the actual color image
+                "depth_data": depth_b64,       # Added a new key for the depth image
                 "color_detection": [msg.color_r, msg.color_g, msg.color_b],
                 "bounding_box": [[pt.x, pt.y] for pt in msg.bounding_box],
                 "confidence_level": msg.confidence_level,
@@ -209,7 +244,7 @@ class StreamingNode(Node):
             )
 
             # Create data channel
-            self.data_channel = pc.createDataChannel("oldc_images")
+            self.data_channel = pc.createDataChannel("odlc_images")
             self.get_logger().info("Data channel created")
 
             @self.data_channel.on("open")
