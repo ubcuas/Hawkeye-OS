@@ -19,14 +19,14 @@ ApproximateTimeSynchronizer, and re-publishes them together as a single
 TaggedImage message for downstream consumers (e.g. object_detection).
 """
 # topic for connected camera
-COLOR_TOPIC = "/camera/camera/color/image_raw/compressed"
-DEPTH_TOPIC = "/camera/camera/depth/image_rect_raw"
+COLOR_TOPIC = "/camera/color/image_raw/compressed"
+DEPTH_TOPIC = "/camera/aligned_depth_to_color/image_raw"
 
 # topics for ros2 bag
 # COLOR_TOPIC = "color/image_raw/compressed"
 # DEPTH_TOPIC = "/depth/image_rect_raw/compressed"
 
-IMU_TOPIC   = "/camera/camera/imu"
+IMU_TOPIC   = "/camera/imu"
 GPS_TOPIC   = "/gps/fix"
 OUTPUT_TOPIC = "/image_processor/tagged_image"
 

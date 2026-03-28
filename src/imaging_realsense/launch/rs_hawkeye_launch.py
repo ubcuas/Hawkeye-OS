@@ -51,7 +51,7 @@ def generate_launch_description():
     )
     
     return LaunchDescription([
-        realsense_launch,
+        # realsense_launch,
         image_processor,
         object_detection, 
         streaming,
