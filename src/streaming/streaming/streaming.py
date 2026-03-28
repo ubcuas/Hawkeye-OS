@@ -1,10 +1,16 @@
 import asyncio
 import base64
 import json
+import logging
 import traceback
 import uuid
 import cv2
 import numpy as np
+
+# Suppress noisy internal logs from socketio/engineio/aiohttp
+logging.getLogger("socketio").setLevel(logging.WARNING)
+logging.getLogger("engineio").setLevel(logging.WARNING)
+logging.getLogger("aiohttp").setLevel(logging.WARNING)
 
 import rclpy
 from rclpy.node import Node
