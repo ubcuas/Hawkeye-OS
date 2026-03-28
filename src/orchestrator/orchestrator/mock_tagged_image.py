@@ -19,9 +19,9 @@ from hawkeye_msgs.msg import TaggedImage
 
 # Bounding box shapes to cycle through so the data is visually distinct
 _MOCK_BOUNDING_BOXES = [
-    {"vertices": [(100, 80), (300, 80), (300, 200), (100, 200)], "confidence": 92},
-    {"vertices": [(50, 50), (150, 200)], "confidence": 78},
-    {"vertices": [(200, 100), (280, 100), (280, 180), (200, 180), (240, 140)], "confidence": 85},
+    {"vertices": [(100, 80), (300, 80), (300, 200), (100, 200)], "confidence": 0.92},
+    {"vertices": [(50, 50), (150, 200)], "confidence": 0.78},
+    {"vertices": [(200, 100), (280, 100), (280, 180), (200, 180), (240, 140)], "confidence": 0.85},
 ]
 
 # Hue increment per tick (0.0-1.0 scale). 0.02 = 50 steps for a full rainbow.
