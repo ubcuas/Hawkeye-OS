@@ -16,15 +16,6 @@ services:
       - render
       - i2c
 
-    # adding nvidia runtime
-    runtime: nvidia
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
     volumes:
       # FIX 2: Replaced - /dev:/dev with specific camera paths to avoid breaking NVIDIA runtime
       - /dev/bus/usb:/dev/bus/usb

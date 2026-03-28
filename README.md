@@ -29,13 +29,30 @@ Hawkeye-OS/
     └── test_video.mp4
 ```
 
-### Installing Dependencies 
+### Installing Dependencies
 Install `docker, docker-compose, tmux`.
 
 // I think we can ignore this since we have the requirements.txt
-Install required Python Packages: 
+Install required Python Packages:
 ```bash
 pip install websockets aiortc av opencv-python numpy
+```
+
+### Docker Compose File Structure
+
+| File | Purpose |
+|---|---|
+| `docker-compose.yml` | Base configuration (no GPU -- works everywhere) |
+| `docker-compose.override.yml` | Local dev overrides (automatically applied by `docker compose`) |
+| `docker-compose.gpu.yml` | NVIDIA runtime + GPU device reservations for Jetson |
+
+The base `docker-compose.yml` does **not** include any NVIDIA/GPU config, so it works on Mac and non-GPU Linux out of the box.
+
+For **local development on Mac/non-GPU machines**, just run `docker compose up` as usual. The override file is automatically applied and sets `runtime: runc`.
+
+For **Jetson deployment**, layer in the GPU config:
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
 ```
 
 ### Building the Image for the First Time (Manual)

@@ -1,0 +1,12 @@
+# GPU overlay for NVIDIA Jetson / Linux hosts with NVIDIA GPUs.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.gpu.yml up
+services:
+  ros2_workspace:
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
