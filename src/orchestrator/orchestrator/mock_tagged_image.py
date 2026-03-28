@@ -13,7 +13,7 @@ from rclpy.node import Node
 import numpy as np
 import cv2
 from geometry_msgs.msg import Point32
-from sensor_msgs.msg import CompressedImage
+from sensor_msgs.msg import CompressedImage, Imu, NavSatFix
 from hawkeye_msgs.msg import TaggedImage
 
 
@@ -52,18 +52,52 @@ class MockTaggedImagePublisher(Node):
 
         # Generate a small solid-colour image so the payload is non-trivial
         height, width = 240, 320
+        now = self.get_clock().now().to_msg()
+
+        # Color image (JPEG-compressed)
         frame = np.zeros((height, width, 3), dtype=np.uint8)
         frame[:, :] = [r, g, b]
 
         img_msg = CompressedImage()
-        img_msg.header.stamp = self.get_clock().now().to_msg()
-        img_msg.header.frame_id = "object_detection"
+        img_msg.header.stamp = now
+        img_msg.header.frame_id = "mock_camera"
         img_msg.format = "jpeg"
         _, jpeg_data = cv2.imencode(".jpg", frame)
         img_msg.data = jpeg_data.tobytes()
 
+        # Depth image (16UC1 PNG-compressed, values in millimeters)
+        # Gradient from 1m (1000mm) at top to 5m (5000mm) at bottom
+        depth_frame = np.linspace(1000, 5000, height, dtype=np.uint16)
+        depth_frame = np.tile(depth_frame.reshape(-1, 1), (1, width))
+
+        depth_msg = CompressedImage()
+        depth_msg.header.stamp = now
+        depth_msg.header.frame_id = "mock_camera"
+        depth_msg.format = "16UC1; png"
+        _, depth_png = cv2.imencode(".png", depth_frame)
+        depth_msg.data = depth_png.tobytes()
+
+        # IMU data (simulated level orientation with minor angular velocity)
+        imu_msg = Imu()
+        imu_msg.header.stamp = now
+        imu_msg.header.frame_id = "mock_imu"
+        imu_msg.orientation.w = 1.0
+        imu_msg.angular_velocity.z = 0.01
+        imu_msg.linear_acceleration.z = 9.81
+
+        # GPS data (UBC campus)
+        gps_msg = NavSatFix()
+        gps_msg.header.stamp = now
+        gps_msg.header.frame_id = "mock_gps"
+        gps_msg.latitude = 49.2606
+        gps_msg.longitude = -123.2460
+        gps_msg.altitude = 76.0
+
         msg = TaggedImage()
         msg.image_data = img_msg
+        msg.depth_data = depth_msg
+        msg.imu_data = imu_msg
+        msg.gps_data = gps_msg
         msg.color_r = r
         msg.color_g = g
         msg.color_b = b
