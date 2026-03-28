@@ -6,6 +6,8 @@ Publishes synthetic TaggedImage messages to object_detection/tagged_image
 at 1 Hz to simulate infrequent object detection payloads.
 """
 
+import colorsys
+
 import rclpy
 from rclpy.node import Node
 import numpy as np
@@ -14,24 +16,15 @@ from sensor_msgs.msg import Image
 from hawkeye_msgs.msg import TaggedImage
 
 
-# Cycle through a few mock detections so the data is visually distinct
-_MOCK_DETECTIONS = [
-    {
-        "color": (255, 0, 0),
-        "bounding_box": [(100, 80), (300, 80), (300, 200), (100, 200)],
-        "confidence": 92,
-    },
-    {
-        "color": (0, 255, 0),
-        "bounding_box": [(50, 50), (150, 200)],
-        "confidence": 78,
-    },
-    {
-        "color": (0, 0, 255),
-        "bounding_box": [(200, 100), (280, 100), (280, 180), (200, 180), (240, 140)],
-        "confidence": 85,
-    },
+# Bounding box shapes to cycle through so the data is visually distinct
+_MOCK_BOUNDING_BOXES = [
+    {"vertices": [(100, 80), (300, 80), (300, 200), (100, 200)], "confidence": 92},
+    {"vertices": [(50, 50), (150, 200)], "confidence": 78},
+    {"vertices": [(200, 100), (280, 100), (280, 180), (200, 180), (240, 140)], "confidence": 85},
 ]
+
+# Hue increment per tick (0.0-1.0 scale). 0.02 = 50 steps for a full rainbow.
+_HUE_STEP = 0.02
 
 
 class MockTaggedImagePublisher(Node):
@@ -42,15 +35,19 @@ class MockTaggedImagePublisher(Node):
         self.timer = self.create_timer(1.0, self.publish_tagged_image)
 
         self._cycle_index = 0
+        self._hue = 0.0
 
         self.get_logger().info("Mock Tagged Image publisher started")
         self.get_logger().info("Publishing at 1 Hz on: object_detection/tagged_image")
 
     def publish_tagged_image(self):
-        detection = _MOCK_DETECTIONS[self._cycle_index % len(_MOCK_DETECTIONS)]
+        bbox = _MOCK_BOUNDING_BOXES[self._cycle_index % len(_MOCK_BOUNDING_BOXES)]
         self._cycle_index += 1
 
-        r, g, b = detection["color"]
+        # Convert current hue to RGB and advance
+        r_f, g_f, b_f = colorsys.hsv_to_rgb(self._hue, 1.0, 1.0)
+        r, g, b = int(r_f * 255), int(g_f * 255), int(b_f * 255)
+        self._hue = (self._hue + _HUE_STEP) % 1.0
 
         # Generate a small solid-colour image so the payload is non-trivial
         height, width = 240, 320
@@ -72,10 +69,10 @@ class MockTaggedImagePublisher(Node):
         msg.color_r = r
         msg.color_g = g
         msg.color_b = b
-        msg.confidence_level = detection["confidence"]
+        msg.confidence_level = bbox["confidence"]
         msg.bounding_box = [
             Point32(x=float(x), y=float(y), z=0.0)
-            for x, y in detection["bounding_box"]
+            for x, y in bbox["vertices"]
         ]
 
         self.pub.publish(msg)
