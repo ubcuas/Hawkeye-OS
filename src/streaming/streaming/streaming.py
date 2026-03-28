@@ -165,7 +165,10 @@ class StreamingNode(Node):
                 "image_data": color_b64,       # Now sending the actual color image
                 "depth_data": depth_b64,       # Added a new key for the depth image
                 "color_detection": [msg.color_r, msg.color_g, msg.color_b],
-                "bounding_box": [[pt.x, pt.y] for pt in msg.bounding_box],
+                "bounding_box": [
+                    [pt.x / color_frame.shape[1], pt.y / color_frame.shape[0]]
+                    for pt in msg.bounding_box
+                ],
                 "confidence_level": msg.confidence_level,
             }
         )
