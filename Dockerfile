@@ -48,7 +48,7 @@ RUN mkdir -p /ros2_ws/src /ros2_ws/build /ros2_ws/install
 WORKDIR /ros2_ws
 
 # Install Python packages for WebRTC
-RUN pip3 install aiortc av opencv-python websockets numpy
+RUN pip3 install aiortc av opencv-python websockets numpy pyrealsense2
 
 # Configure ROS environment for new user
 RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /home/$USERNAME/.bashrc \
