@@ -27,6 +27,8 @@ setup(
             'navigation = navigation.navigation:main',
             'test_servo = navigation.test_servo:test_servo',
             'test_nav = navigation.test_nav:main',
+            'bridge_detection = navigation.bridge_detection:main',
+            'test_tagged_image_pub = navigation.test_tagged_image_pub:main',
         ],
     },
 )
