@@ -1,0 +1,9 @@
+sensor_msgs/CompressedImage image_data
+sensor_msgs/CompressedImage depth_data
+sensor_msgs/Imu imu_data
+sensor_msgs/NavSatFix gps_data
+uint8 color_r
+uint8 color_g
+uint8 color_b
+geometry_msgs/Point32[] bounding_box
+float32 confidence_level

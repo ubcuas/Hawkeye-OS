@@ -11,7 +11,7 @@ from rclpy.qos import (
 from geometry_msgs.msg import PoseStamped
 from mavros_msgs.msg import State
 from mavros_msgs.srv import CommandLong
-from std_msgs.msg import Float32MultiArray
+from std_msgs.msg import Float32MultiArray, Bool
 import threading
 import time
 import math
@@ -45,6 +45,8 @@ STEP_EPS = 0.30
 SETPOINT_PERIOD_S = 0.05
 STATUS_LOG_PERIOD_S = 1.0
 DEBUG_FLAG = True
+MIN_Z_M = 0.5
+MAX_Z_M = 10.0
 
 
 class ArduPilotNode(Node):
@@ -84,7 +86,10 @@ class ArduPilotNode(Node):
 
         # State Subscriber
         self.state_sub = self.create_subscription(
-            State, "/mavros/state", self.state_cb, qos_reliable
+            State, 
+            "/mavros/state", 
+            self.state_cb, 
+            qos_reliable
         )
 
         # Position Subscriber
@@ -97,12 +102,31 @@ class ArduPilotNode(Node):
 
         # Command Subscriber
         self.cmd_sub = self.create_subscription(
-            PoseStamped, "/drone/cmd_pose", self.command_cb, qos_reliable
+            PoseStamped, 
+            "/drone/cmd_pose", 
+            self.command_cb, 
+            qos_reliable
         )
 
         # Location Publisher
         self.local_pos_pub = self.create_publisher(
-            PoseStamped, "/mavros/setpoint_position/local", qos_reliable
+            PoseStamped, 
+            "/mavros/setpoint_position/local", 
+            qos_reliable
+        )
+
+        # Mission-state publisher so other nodes know whether nav is busy
+        mission_state_qos = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        )
+
+        self.mission_active_pub = self.create_publisher(
+            Bool,
+            "/drone/mission_active",
+            mission_state_qos
         )
 
         # Water Servo Subcriber and Servo Client
@@ -125,16 +149,21 @@ class ArduPilotNode(Node):
         self.timer = self.create_timer(SETPOINT_PERIOD_S, self.timer_cb)
 
         self.current_state = State()
+        self.publish_mission_active()
         self.get_logger().info("Node initialized. Listening on /drone/cmd_pose")
 
     def cancel_mission(self):
         self.mission_active = False
+        self.publish_mission_active()
         self.step_targets = []
         self.step_index = 0
         self.in_dwell = False
         self.dwell_until = self.get_clock().now()
         if self.have_pose:
             self.target_pose = self.copy_pose(self.current_pose)
+
+    def publish_mission_active(self):
+        self.mission_active_pub.publish(Bool(data=self.mission_active))
 
     def state_cb(self, msg):
         self.current_state = msg
@@ -175,6 +204,14 @@ class ArduPilotNode(Node):
         siny_cosp = 2.0 * (qw * qz + qx * qy)
         cosy_cosp = 1.0 - 2.0 * (qy * qy + qz * qz)
         return math.atan2(siny_cosp, cosy_cosp)
+    
+    def clamp_z(self, z_value: float) -> float:
+        clamped = max(MIN_Z_M, min(z_value, MAX_Z_M))
+        if abs(clamped - z_value) > 1e-6:
+            self.get_logger().warn(
+                f"Target altitude clamped from {z_value:.3f} m to {clamped:.3f} m "
+            )
+        return clamped
 
     # convert relative delta command from object detection into an absolute target
     def delta_to_target_pose(self, delta_msg: PoseStamped) -> PoseStamped:
@@ -191,10 +228,11 @@ class ArduPilotNode(Node):
         dx_world = cos_yaw * dx_body - sin_yaw * dy_body
         dy_world = sin_yaw * dx_body + cos_yaw * dy_body
 
-        # Absolute "object" position = reference position + rotated horizontal delta
+        # Absolute "object" position = reference position + rotated horizontal delta (clamped z)
         target.pose.position.x = self.reference_pose.pose.position.x + dx_world
         target.pose.position.y = self.reference_pose.pose.position.y + dy_world
-        target.pose.position.z = self.reference_pose.pose.position.z
+        requested_z = self.reference_pose.pose.position.z + float(delta_msg.pose.position.z)
+        target.pose.position.z = self.clamp_z(requested_z)
 
         # Keep the reference orientation
         target.pose.orientation.x = self.reference_pose.pose.orientation.x
@@ -239,6 +277,7 @@ class ArduPilotNode(Node):
         self.target_pose = self.delta_to_target_pose(msg)
         self.set_target_yaw_facing_goal()
         self.mission_active = True
+        self.publish_mission_active()
 
         self.get_logger().info(
             f"Mission started -> final target: "
@@ -316,7 +355,7 @@ class ArduPilotNode(Node):
                 step = PoseStamped()
                 step.pose.position.x = sx + ux * step_len * float(i + 1)
                 step.pose.position.y = sy + uy * step_len * float(i + 1)
-                step.pose.position.z = sz + uz * step_len * float(i + 1)
+                step.pose.position.z = self.clamp_z(sz + uz * step_len * float(i + 1))
 
                 step.pose.orientation = self.target_pose.pose.orientation
 
