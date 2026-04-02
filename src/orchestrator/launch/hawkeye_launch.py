@@ -30,11 +30,11 @@ def generate_launch_description():
         }.items()
     )
 
-    # --- 3. START NAVIGATION NODE ---
-    navigation_node = Node(
-        package='navigation',
-        executable='navigation',      # Must match 'entry_points' in navigation/setup.py
-        name='navigation_node',
+    # --- 3. START DRONE CONTROL NODE ---
+    drone_control_node = Node(
+        package='drone_control',
+        executable='drone_control',      # Must match 'entry_points' in drone_control/setup.py
+        name='drone_control_node',
         output='screen',
         emulate_tty=True
     )
@@ -50,6 +50,6 @@ def generate_launch_description():
     return LaunchDescription([
         fcu_url_arg,
         mavros_launch,
-        navigation_node,
+        drone_control_node,
         orchestrator_node
     ])
