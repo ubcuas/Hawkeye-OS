@@ -34,17 +34,17 @@ def generate_launch_description():
     )
 
 
-    navigation_node = Node(
-        package="navigation",
-        executable="navigation",
-        name="navigation_node",
+    drone_control_node = Node(
+        package="drone_control",
+        executable="drone_control",
+        name="drone_control",
         output="screen",
         emulate_tty=True,
     )
 
 
     bridge_detection_node = Node(
-        package="navigation",
+        package="drone_control",
         executable="bridge_detection",
         name="bridge_detection",
         output="screen",
@@ -55,6 +55,6 @@ def generate_launch_description():
     return LaunchDescription([
         fcu_url_arg,
         mavros_launch,
-        navigation_node,
+        drone_control_node,
         bridge_detection_node,
     ])

@@ -156,7 +156,7 @@ class BridgeDetection(Node):
                 float(depth_m),
             )
 
-            # Convert optical frame -> body frame expected by navigation.py
+            # Convert optical frame -> body frame expected by drone_control.py
             # body x forward, y left, z up
             x_body = z_cam + CAMERA_X_OFFSET_M
             y_body = -x_cam + CAMERA_Y_OFFSET_M

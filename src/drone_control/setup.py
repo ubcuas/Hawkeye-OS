@@ -2,7 +2,7 @@ from setuptools import setup
 import os
 from glob import glob
 
-package_name = 'navigation'
+package_name = 'drone_control'
 
 setup(
     name=package_name,
@@ -19,16 +19,16 @@ setup(
     zip_safe=True,
     maintainer='Your Name',
     maintainer_email='you@example.com',
-    description='navigation control node',
+    description='drone control node',
     license='MIT',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'navigation = navigation.navigation:main',
-            'test_servo = navigation.test_servo:test_servo',
-            'test_nav = navigation.test_nav:main',
-            'bridge_detection = navigation.bridge_detection:main',
-            'test_tagged_image_pub = navigation.test_tagged_image_pub:main',
+            'drone_control = drone_control.drone_control:main',
+            'test_servo = drone_control.test_servo:test_servo',
+            'test_nav = drone_control.test_nav:main',
+            'bridge_detection = drone_control.bridge_detection:main',
+            'test_tagged_image_pub = drone_control.test_tagged_image_pub:main',
         ],
     },
 )

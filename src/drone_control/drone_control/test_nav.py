@@ -132,7 +132,7 @@ class NavTestNode(Node):
         return math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2)
 
     def _build_body_frame_command(self, start_pose: PoseStamped, object_target_world: Point3) -> Point3:
-        # Convert designated world-frame target into the body-frame relative command; expected by navigation.py.
+        # Convert designated world-frame target into the body-frame relative command; expected by drone_control.py.
         start = self._pose_to_point(start_pose)
         yaw = self._yaw_from_pose(start_pose)
 
@@ -274,7 +274,7 @@ class NavTestNode(Node):
         if self.current_pose is None:
             return
 
-        # Wait until the vehicle is in a state where navigation.py would accept the command
+        # Wait until the vehicle is in a state where drone_control.py would accept the command
         if not self.command_sent:
             if not self.current_state.connected:
                 return

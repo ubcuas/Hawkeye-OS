@@ -19,7 +19,7 @@ def test_servo():
     ]
 
     print("Testing /drone/set_servo topic...")
-    print("Make sure navigation node is running!")
+    print("Make sure drone_control node is running!")
     time.sleep(2)
 
     for servo_num, pwm, description in test_cases:
