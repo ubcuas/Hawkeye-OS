@@ -24,14 +24,22 @@ class ServoCommand:
 
     servo_num: float
     pwm_value: float
-    count: float
-    range_start: float
-    range_end: float
-    speed: float
+    count: float = 0.0
+    range_start: float = 0.0
+    range_end: float = 0.0
+    speed: float = 0.0
 
     @classmethod
     def from_array(cls, msg: Float32MultiArray) -> "ServoCommand":
-        return cls(servo_num=int(msg.data[0]), pwm_value=int(msg.data[1]))
+        d = msg.data
+        return cls(
+            servo_num=float(d[0]),
+            pwm_value=float(d[1]),
+            count=float(d[2]) if len(d) > 2 else 0.0,
+            range_start=float(d[3]) if len(d) > 3 else 0.0,
+            range_end=float(d[4]) if len(d) > 4 else 0.0,
+            speed=float(d[5]) if len(d) > 5 else 0.0,
+        )
 
 
 # ==========================

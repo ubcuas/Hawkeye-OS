@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Integration test: publishes /drone/cmd_pose and checks stand-off vs /mavros/local_position/pose.
+# Requires mavros + drone_control (GUIDED, armed). See test_bridge_pipeline for bridge path.
+
 import math
 from dataclasses import dataclass
 from typing import Optional
@@ -8,6 +11,8 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy, qos_profile_sensor_data
 from geometry_msgs.msg import PoseStamped
 from mavros_msgs.msg import State
+
+_LOG_RULE = "=================================================="
 
 
 @dataclass
@@ -22,9 +27,9 @@ class NavTestNode(Node):
     def __init__(self):
         super().__init__("nav_test_node")
 
-        # -----------------------------
+        # ==========================
         # Tunable parameters
-        # -----------------------------
+        # ==========================
         self.declare_parameter("target_world_dx", 10.0)
         self.declare_parameter("target_world_dy", 0.0)
         self.declare_parameter("target_world_dz", 0.0)
@@ -100,7 +105,9 @@ class NavTestNode(Node):
         self.last_status_time = 0.0
         self.in_tolerance_since = None
 
-        self.get_logger().info("Nav test node started. Waiting for pose + GUIDED/armed state.")
+        self.get_logger().info(
+            "nav_test_node: started. Waiting for pose + GUIDED/armed. Ensure drone_control is running."
+        )
 
     def state_cb(self, msg: State):
         self.current_state = msg
@@ -213,8 +220,8 @@ class NavTestNode(Node):
 
         yaw_deg = math.degrees(self._yaw_from_pose(self.start_pose))
 
-        self.get_logger().info("==================================================")
-        self.get_logger().info("TEST STARTED")
+        self.get_logger().info(_LOG_RULE)
+        self.get_logger().info("TEST STARTED (nav / cmd_pose)")
         self.get_logger().info(
             f"Start pose: ({start.x:.3f}, {start.y:.3f}, {start.z:.3f}), yaw={yaw_deg:.1f} deg"
         )
@@ -230,7 +237,7 @@ class NavTestNode(Node):
             f"Expected final stand-off point: "
             f"({self.expected_endpoint_world.x:.3f}, {self.expected_endpoint_world.y:.3f}, {self.expected_endpoint_world.z:.3f})"
         )
-        self.get_logger().info("==================================================")
+        self.get_logger().info(_LOG_RULE)
 
     def _finish(self, passed: bool, reason: str):
         if self.test_done:
@@ -239,7 +246,7 @@ class NavTestNode(Node):
         self.test_done = True
         current = self._pose_to_point(self.current_pose) if self.current_pose is not None else None
 
-        self.get_logger().info("==================================================")
+        self.get_logger().info(_LOG_RULE)
         if passed:
             self.get_logger().info(f"TEST PASS: {reason}")
         else:
@@ -264,7 +271,7 @@ class NavTestNode(Node):
                 f"(expected about {self.desired_standoff_m:.3f} m)"
             )
 
-        self.get_logger().info("==================================================")
+        self.get_logger().info(_LOG_RULE)
         raise SystemExit(0 if passed else 1)
 
     def timer_cb(self):
@@ -350,7 +357,7 @@ def main():
         rclpy.shutdown()
         raise SystemExit(code)
     except KeyboardInterrupt:
-        node.get_logger().info("Shutting down nav test node...")
+        node.get_logger().info("Shutting down nav_test_node...")
         node.destroy_node()
         rclpy.shutdown()
 
