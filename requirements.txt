@@ -1,0 +1,11 @@
+websockets>=10.0
+aiortc
+av
+paho-mqtt
+opencv-python-headless
+numpy<2
+python-socketio
+aiohttp
+ultralytics
+# CLIP is installed separately in the Dockerfile/devcontainer via:
+# pip3 install git+https://github.com/openai/CLIP.git
