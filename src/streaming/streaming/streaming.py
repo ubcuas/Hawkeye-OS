@@ -63,7 +63,7 @@ class StreamingNode(Node):
         # image_processor synchronizes color+depth and publishes TaggedImage; we pull the
         # color frame from it to drive the WebRTC video track.
         self.image_processor_subscription = self.create_subscription(
-            CompressedImage, "/camera/color/image_raw/compressed", self._route_image_to_track, 10
+            CompressedImage, "/camera/camera/color/image_raw/compressed", self._route_image_to_track, 10
         )
 
         # Subscribe to tagged images from object detection
