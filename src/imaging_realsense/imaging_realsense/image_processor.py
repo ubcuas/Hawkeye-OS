@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
+import math
 import cv2
 import numpy as np
 import rclpy
 import message_filters
 from rclpy.node import Node
 from rclpy.qos import QoSPresetProfiles
+from geometry_msgs.msg import Quaternion
 from sensor_msgs.msg import CompressedImage, Image, Imu
 from sensor_msgs.msg import NavSatFix
 from hawkeye_msgs.msg import TaggedImage
@@ -28,6 +30,7 @@ DEPTH_TOPIC = "/camera/aligned_depth_to_color/image_raw"
 
 IMU_TOPIC   = "/camera/imu"
 GPS_TOPIC   = "/gps/fix"
+
 OUTPUT_TOPIC = "/image_processor/tagged_image"
 
 # ApproximateTimeSynchronizer settings
@@ -36,6 +39,9 @@ SYNC_SLOP = 1000  # Max time difference (seconds) between matched frames
 
 # Publish every Nth synchronized frame (1 = publish all)
 PUBLISH_EVERY_N = 1
+
+# NOT CURRENTLY USED. 
+MAVROS_IMU_TOPIC = "/mavros/imu/data"
 
 
 class ImageProcessor(Node):
@@ -48,6 +54,9 @@ class ImageProcessor(Node):
         # Cache for optional metadata
         self.latest_gps = None
         self.latest_imu = None
+        self.latest_yaw_deg = None  # None → publish yaw_deg as NaN on TaggedImage
+        self.latest_yaw_stamp_sec = None  # from Imu; for future synchronization
+        self.latest_imu_orientation = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
 
         # Frame counter for throttling
         self._frame_count = 0
@@ -95,6 +104,7 @@ class ImageProcessor(Node):
         self.get_logger().info(f'Subscribed to depth: {DEPTH_TOPIC}')
         self.get_logger().info(f'Publishing TaggedImage to: {OUTPUT_TOPIC}')
         self.get_logger().info(f'Sync slop: {SYNC_SLOP}s')
+        self.get_logger().info(f'Subscribed to IMU: {IMU_TOPIC}')
 
     def synchronized_callback(self, color_msg: CompressedImage, depth_msg: Image):
         """Called when a matching color+depth pair arrives within the slop window."""
@@ -130,12 +140,14 @@ class ImageProcessor(Node):
         if self.latest_gps is not None:
             tagged.gps_data = self.latest_gps
 
+        tagged.imu_orientation = self.latest_imu_orientation
+        if self.latest_yaw_deg is not None:
+            tagged.yaw_deg = float(self.latest_yaw_deg)
+        else:
+            tagged.yaw_deg = float("nan")
+
         self.tagged_image_pub.publish(tagged)
         self.get_logger().debug('Published TaggedImage')
-
-    def imu_callback(self, msg: Imu):
-        """Cache latest IMU data."""
-        self.latest_imu = msg
 
     def gps_callback(self, msg: NavSatFix):
         """Cache latest GPS data."""
@@ -144,6 +156,44 @@ class ImageProcessor(Node):
             f'GPS updated: ({msg.latitude:.6f}, {msg.longitude:.6f}, {msg.altitude:.2f}m)',
             throttle_duration_sec=1.0,
         )
+
+    @staticmethod
+    def imu_calculation(msg: Imu):
+        """Yaw from Imu.orientation quaternion to degrees [0, 360).
+
+        Returns:
+            (yaw_deg, stamp_sec, orientation)
+        """
+        stamp_sec = float(msg.header.stamp.sec) + float(msg.header.stamp.nanosec) * 1e-9
+        identity = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
+
+        if msg.orientation_covariance[0] < 0.0:
+            return None, stamp_sec, identity
+
+        q = msg.orientation  # geometry_msgs/Quaternion
+        x, y, z, w = q.x, q.y, q.z, q.w
+        norm = math.sqrt(x * x + y * y + z * z + w * w)
+        if norm < 1e-8:
+            return None, stamp_sec, identity
+        x, y, z, w = x / norm, y / norm, z / norm, w / norm
+
+        q_out = Quaternion(x=x, y=y, z=z, w=w)
+
+        # Yaw about vertical axis from Hamilton quaternion (x, y, z, w) — radians
+        siny_cosp = 2.0 * (w * z + x * y)
+        cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
+        yaw_rad = math.atan2(siny_cosp, cosy_cosp)
+
+        yaw_deg = math.degrees(yaw_rad) % 360.0
+        return yaw_deg, stamp_sec, q_out
+
+    def imu_callback(self, msg: Imu):
+        """Cache latest ``/camera/imu`` and derive yaw + quaternion."""
+        yaw_deg, stamp_sec, orientation = self.imu_calculation(msg)
+        self.latest_yaw_stamp_sec = stamp_sec
+        self.latest_yaw_deg = yaw_deg
+        self.latest_imu_orientation = orientation
+        self.latest_imu = msg
 
 
 def main(args=None):
