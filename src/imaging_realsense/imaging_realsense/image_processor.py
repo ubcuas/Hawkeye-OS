@@ -69,12 +69,6 @@ class ImageProcessor(Node):
         )
 
         # Optional metadata subscriptions (regular, non-synchronized)
-        self.imu_subscription = self.create_subscription(
-            Imu,
-            IMU_TOPIC,
-            self.imu_callback,
-            qos_profile=sensor_qos,
-        )
 
         self.mavros_imu_subscription = self.create_subscription(
             Imu,
@@ -194,9 +188,6 @@ class ImageProcessor(Node):
         yaw_deg = math.degrees(yaw_rad) % 360.0
         return yaw_deg, stamp_sec, q_out
 
-    # Unused: camera IMU is unreliable; yaw/tagging uses MAVROS IMU below.
-    def imu_callback(self, msg: Imu):
-        pass
 
     def mavros_imu_callback(self, msg: Imu):
         """Cache latest MAVROS IMU and derive yaw + quaternion."""
