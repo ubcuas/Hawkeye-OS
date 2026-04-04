@@ -81,6 +81,8 @@ RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/arm
     && apt-get install -y cudss \
     && rm -rf /var/lib/apt/lists/*
 
+RUN pip3 install pyrealsense2
+
 # Set the Ultralytics config directory to a writable location
 # Disable auto-install so ultralytics doesn't try to re-install CLIP at runtime
 ENV YOLO_CONFIG_DIR=/tmp/Ultralytics

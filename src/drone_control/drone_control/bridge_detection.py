@@ -66,7 +66,7 @@ class BridgeDetection(Node):
         
         self.depth_info_sub = self.create_subscription(
             CameraInfo,
-            "/camera/depth/camera_info",
+            "/camera/camera/depth/camera_info",
             self.depth_info_cb,
             qos_reliable,
         )
