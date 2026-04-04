@@ -1,7 +1,10 @@
 {
   "name": "Hawkeye ROS 2 Humble",
 
-  "dockerComposeFile": "../docker-compose.yml",
+  "dockerComposeFile": [
+    "../docker-compose.yml",
+    "../docker-compose.override.yml"
+  ],
   "service": "ros2_workspace",
   "workspaceFolder": "/ros2_ws",
 
@@ -14,18 +17,28 @@
       "extensions": [
         "ms-iot.vscode-ros",
         "ms-python.python",
+        "ms-python.pylance",
         "ms-vscode.cpptools",
-        "twxs.cmake"
+        "twxs.cmake",
+        "charliermarsh.ruff"
       ],
       "settings": {
         "python.defaultInterpreterPath": "/usr/bin/python3",
         "python.autoComplete.extraPaths": [
+          "/opt/ros/humble/local/lib/python3.10/dist-packages",
           "/opt/ros/humble/lib/python3.10/site-packages",
-          "/ros2_ws/install/lib/python3.10/site-packages"
+          "/ros2_ws/install/hawkeye_msgs/local/lib/python3.10/dist-packages",
+          "/ros2_ws/install/imaging_realsense/lib/python3.10/site-packages",
+          "/ros2_ws/install/orchestrator/lib/python3.10/site-packages",
+          "/ros2_ws/install/streaming/lib/python3.10/site-packages"
         ],
         "python.analysis.extraPaths": [
+          "/opt/ros/humble/local/lib/python3.10/dist-packages",
           "/opt/ros/humble/lib/python3.10/site-packages",
-          "/ros2_ws/install/lib/python3.10/site-packages"
+          "/ros2_ws/install/hawkeye_msgs/local/lib/python3.10/dist-packages",
+          "/ros2_ws/install/imaging_realsense/lib/python3.10/site-packages",
+          "/ros2_ws/install/orchestrator/lib/python3.10/site-packages",
+          "/ros2_ws/install/streaming/lib/python3.10/site-packages"
         ],
         "C_Cpp.default.includePath": [
           "/opt/ros/humble/include/**",
@@ -36,7 +49,7 @@
     }
   },
 
-  "postCreateCommand": "sudo chown -R ros:ros /ros2_ws/build /ros2_ws/install 2>/dev/null || true && sudo apt-get update && rosdep update && sudo rosdep install --from-paths src --ignore-src -y && sudo /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh && bash -c 'source /opt/ros/humble/setup.bash && colcon build --symlink-install'",
+  "postCreateCommand": "sudo pip3 install --quiet git+https://github.com/openai/CLIP.git && sudo chown -R ros:ros /ros2_ws/build /ros2_ws/install 2>/dev/null || true && sudo apt-get update && rosdep update && sudo rosdep install --from-paths src --ignore-src -y && sudo /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh && bash -c 'source /opt/ros/humble/setup.bash && colcon build --symlink-install'",
 
   "forwardPorts": [],
 
