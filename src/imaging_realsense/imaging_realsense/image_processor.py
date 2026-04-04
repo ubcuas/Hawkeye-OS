@@ -40,7 +40,6 @@ SYNC_SLOP = 1000  # Max time difference (seconds) between matched frames
 # Publish every Nth synchronized frame (1 = publish all)
 PUBLISH_EVERY_N = 1
 
-# NOT CURRENTLY USED. 
 MAVROS_IMU_TOPIC = "/mavros/imu/data"
 
 
@@ -77,6 +76,13 @@ class ImageProcessor(Node):
             qos_profile=sensor_qos,
         )
 
+        self.mavros_imu_subscription = self.create_subscription(
+            Imu,
+            MAVROS_IMU_TOPIC,
+            self.mavros_imu_callback,
+            qos_profile=sensor_qos,
+        )
+
         self.gps_subscription = self.create_subscription(
             NavSatFix,
             GPS_TOPIC,
@@ -105,6 +111,7 @@ class ImageProcessor(Node):
         self.get_logger().info(f'Publishing TaggedImage to: {OUTPUT_TOPIC}')
         self.get_logger().info(f'Sync slop: {SYNC_SLOP}s')
         self.get_logger().info(f'Subscribed to IMU: {IMU_TOPIC}')
+        self.get_logger().info(f'Subscribed to MAVROS IMU: {MAVROS_IMU_TOPIC}')
 
     def synchronized_callback(self, color_msg: CompressedImage, depth_msg: Image):
         """Called when a matching color+depth pair arrives within the slop window."""
@@ -187,8 +194,12 @@ class ImageProcessor(Node):
         yaw_deg = math.degrees(yaw_rad) % 360.0
         return yaw_deg, stamp_sec, q_out
 
+    # Unused: camera IMU is unreliable; yaw/tagging uses MAVROS IMU below.
     def imu_callback(self, msg: Imu):
-        """Cache latest ``/camera/imu`` and derive yaw + quaternion."""
+        pass
+
+    def mavros_imu_callback(self, msg: Imu):
+        """Cache latest MAVROS IMU and derive yaw + quaternion."""
         yaw_deg, stamp_sec, orientation = self.imu_calculation(msg)
         self.latest_yaw_stamp_sec = stamp_sec
         self.latest_yaw_deg = yaw_deg
