@@ -53,8 +53,8 @@ def generate_launch_description():
 
 
     return LaunchDescription([
-        fcu_url_arg,
-        mavros_launch,
-        drone_control_node,
+        # fcu_url_arg,
+        # mavros_launch,
+        # drone_control_node,
         bridge_detection_node,
     ])
