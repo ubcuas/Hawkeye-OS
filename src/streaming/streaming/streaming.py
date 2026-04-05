@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import json
+import math
 import traceback
 import cv2
 import numpy as np
@@ -128,6 +129,8 @@ class StreamingNode(Node):
             else:
                 self.get_logger().warn("malformed depth data. Skipping.")
         # --- 3. SEND PAYLOAD ---
+        q = msg.imu_orientation
+        yaw = msg.yaw_deg
         payload = json.dumps(
             {
                 "image_data": color_b64,       # Now sending the actual color image
@@ -135,6 +138,13 @@ class StreamingNode(Node):
                 "color_detection": [msg.color_r, msg.color_g, msg.color_b],
                 "bounding_box": [[pt.x, pt.y] for pt in msg.bounding_box],
                 "confidence_level": msg.confidence_level,
+                "imu_orientation": {
+                    "x": q.x,
+                    "y": q.y,
+                    "z": q.z,
+                    "w": q.w,
+                },
+                "yaw_deg": None if math.isnan(yaw) else yaw,
             }
         )
         self.data_channel.send(payload)
