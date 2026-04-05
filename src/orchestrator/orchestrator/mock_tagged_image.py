@@ -10,7 +10,7 @@ import rclpy
 from rclpy.node import Node
 import numpy as np
 import cv2
-from geometry_msgs.msg import Point32
+from geometry_msgs.msg import Point32, Quaternion
 from sensor_msgs.msg import CompressedImage
 from hawkeye_msgs.msg import TaggedImage
 
@@ -67,10 +67,12 @@ class MockTaggedImagePublisher(Node):
 
         msg = TaggedImage()
         msg.image_data = img_msg
+        msg.imu_orientation = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
+        msg.yaw_deg = float((self._cycle_index * 45) % 360)  # fake yaw (deg)
         msg.color_r = r
         msg.color_g = g
         msg.color_b = b
-        msg.confidence_level = detection["confidence"]
+        msg.confidence_level = float(detection["confidence"])
         msg.bounding_box = [
             Point32(x=float(x), y=float(y), z=0.0)
             for x, y in detection["bounding_box"]
