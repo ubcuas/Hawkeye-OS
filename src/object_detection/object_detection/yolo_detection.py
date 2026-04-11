@@ -19,7 +19,7 @@ from ultralytics import YOLOE
 
 # --- Configuration ---
 MODEL_PATH = "/ros2_ws/src/object_detection/yoloe-26x-seg.pt"
-CONF_THRESH = 0.25
+CONF_THRESH = 0.20
 IMGSZ = 960
 USE_CUDA = True
 VISUALIZE = False
@@ -56,16 +56,23 @@ class YoloDetector:
         if masked.size == 0:
             return "unknown", (0, 0, 0)
 
+        # Convert each pixel to HSV individually, then take the median.
+        # Averaging BGR first then converting is mathematically incorrect.
+        masked_hsv = cv2.cvtColor(masked.reshape(1, -1, 3), cv2.COLOR_BGR2HSV).reshape(-1, 3)
+        h = int(np.median(masked_hsv[:, 0]))
+        s = int(np.median(masked_hsv[:, 1]))
+        v = int(np.median(masked_hsv[:, 2]))
         mean_bgr = masked.mean(axis=0).astype(np.uint8)
-        mean_hsv = cv2.cvtColor(np.uint8([[mean_bgr]]), cv2.COLOR_BGR2HSV)[0, 0]
-        h, s, v = int(mean_hsv[0]), int(mean_hsv[1]), int(mean_hsv[2])
 
-        if v < 50: return "black", tuple(int(x) for x in mean_bgr)
-        if s < 30 and v > 200: return "white", tuple(int(x) for x in mean_bgr)
-        if h <= 10 or h >= 160: return "red", tuple(int(x) for x in mean_bgr)
-        if 20 <= h <= 35: return "yellow", tuple(int(x) for x in mean_bgr)
-        if 40 <= h <= 85: return "green", tuple(int(x) for x in mean_bgr)
-        if 90 <= h <= 130: return "blue", tuple(int(x) for x in mean_bgr)
+        # Check achromatic first (black/white require low saturation)
+        if v < 40:                      return "black",   tuple(int(x) for x in mean_bgr)
+        if s < 40 and v > 180:          return "white",   tuple(int(x) for x in mean_bgr)
+        if s < 40:                      return "black",   tuple(int(x) for x in mean_bgr)
+        # Red wraps around 0/180 in OpenCV HSV
+        if h <= 15 or h >= 165:         return "red",     tuple(int(x) for x in mean_bgr)
+        if 20 <= h <= 38:               return "yellow",  tuple(int(x) for x in mean_bgr)
+        if 40 <= h <= 90:               return "green",   tuple(int(x) for x in mean_bgr)
+        if 90 <= h <= 135:              return "blue",    tuple(int(x) for x in mean_bgr)
         return "unknown", tuple(int(x) for x in mean_bgr)
 
 
@@ -115,14 +122,18 @@ class YoloDetector:
                                   interpolation=cv2.INTER_LINEAR)
             mask = mask > 0.5
 
-            # 3. Classify color
-            color_name, _ = self.classify_color_from_mask(img, mask)
+            # 3. Extract color from YOLOE's class prediction (e.g. "red circle" -> "red").
+            # Fall back to HSV classifier only if the class name doesn't contain a known color.
+            known_colors = {"red", "blue", "green", "black", "yellow", "white"}
+            cls_color = cls_name.split()[0].lower() if cls_name else ""
+            if cls_color in known_colors:
+                color_name = cls_color
+            else:
+                color_name, _ = self.classify_color_from_mask(img, mask)
             self.node.get_logger().info(
                 f"Detection {i}: {cls_name} | {color_name} | Conf: {conf:.2f} | "
                 f"BBox: ({x1}, {y1}) -> ({x2}, {y2})"
             )
-            #temp
-            conf = 0.6
             
             processed_images.append((
                 (x1, y1, x2, y2), 
