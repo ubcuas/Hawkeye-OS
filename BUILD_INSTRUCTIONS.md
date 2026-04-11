@@ -20,6 +20,22 @@ docker compose build
 docker compose up -d
 ```
 
+#### On NVIDIA Hosts (Jetson, dGPU)
+
+The base `docker-compose.yml` runs on any host. GPU access (`runtime: nvidia` + device reservations) lives in a separate override, `docker-compose.gpu.yml`, so it must be stacked explicitly:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up
+```
+
+Note: passing `-f` disables auto-loading of `docker-compose.override.yml`. If you need that too, add it to the chain:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.gpu.yml up
+```
+
+The `NVIDIA_VISIBLE_DEVICES` / `NVIDIA_DRIVER_CAPABILITIES` env vars stay in the base file — they're no-ops without the nvidia runtime, so leaving them set on non-GPU hosts is harmless.
+
 #### For AMD64/x86_64 Systems
 
 If you have an x86_64 ArenaSDK file:
