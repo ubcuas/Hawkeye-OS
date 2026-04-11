@@ -58,7 +58,7 @@ class MockTaggedImagePublisher(Node):
         now = self.get_clock().now().to_msg()
 
         frame = np.zeros((height, width, 3), dtype=np.uint8)
-        frame[:, :] = [r, g, b]
+        frame[:, :] = [b, g, r]
 
         img_msg = CompressedImage()
         img_msg.header.stamp = now
