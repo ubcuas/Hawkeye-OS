@@ -1,3 +1,6 @@
+import math
+from collections import deque
+
 import cv2
 import numpy as np
 import pyrealsense2 as rs
@@ -66,7 +69,8 @@ class BridgeDetection(Node):
         self.depth_intrinsics = None
         self.have_depth_intrinsics = False
 
-        confidence_queue = []
+        # (np.ndarray shape (3,), weight) in platform_odom header frame
+        self._target_world_queue: deque = deque(maxlen=CONFIDENCE_QUEUE_SIZE)
         
         qos_reliable = QoSProfile(
             reliability=ReliabilityPolicy.RELIABLE,
@@ -109,7 +113,51 @@ class BridgeDetection(Node):
         self.get_logger().info("Publishing commands to /drone/cmd_pose")
 
     def mission_state_cb(self, msg: Bool):
+        if msg.data and not self.mission_active:
+            self._target_world_queue.clear()
         self.mission_active = msg.data
+
+    @staticmethod
+    def _quaternion_to_R_body_to_world(qx: float, qy: float, qz: float, qw: float):
+        """Rotation matrix R: p_world = R @ p_body (Hamilton quaternion x,y,z,w)."""
+        n = math.sqrt(qx * qx + qy * qy + qz * qz + qw * qw)
+        if n < 1e-10:
+            return None
+        qx, qy, qz, qw = qx / n, qy / n, qz / n, qw / n
+        xx, yy, zz = qx * qx, qy * qy, qz * qz
+        xy, xz, yz = qx * qy, qx * qz, qy * qz
+        wx, wy, wz = qw * qx, qw * qy, qw * qz
+        R = np.array(
+            [
+                [1.0 - 2.0 * (yy + zz), 2.0 * (xy - wz), 2.0 * (xz + wy)],
+                [2.0 * (xy + wz), 1.0 - 2.0 * (xx + zz), 2.0 * (yz - wx)],
+                [2.0 * (xz - wy), 2.0 * (yz + wx), 1.0 - 2.0 * (xx + yy)],
+            ],
+            dtype=np.float64,
+        )
+        return R
+
+    @staticmethod
+    def _odom_valid(odom) -> bool:
+        q = odom.pose.pose.orientation
+        return (
+            BridgeDetection._quaternion_to_R_body_to_world(q.x, q.y, q.z, q.w)
+            is not None
+        )
+
+    @staticmethod
+    def _weighted_world_mean(entries):
+        """entries: iterable of (p_world (3,), weight float)."""
+        w_sum = 0.0
+        acc = np.zeros(3, dtype=np.float64)
+        for p, w in entries:
+            if w <= 0.0:
+                continue
+            acc += w * p
+            w_sum += w
+        if w_sum <= 0.0:
+            return None
+        return acc / w_sum
 
     def _init_depth_intrinsics_from_constants(self):
         intr = rs.intrinsics()
@@ -185,12 +233,45 @@ class BridgeDetection(Node):
             y_body = -x_cam + CAMERA_Y_OFFSET_M
             z_body = -y_cam + CAMERA_Z_OFFSET_M
 
+            p_body = np.array([x_body, y_body, z_body], dtype=np.float64)
+
+            odom = msg.platform_odom
+            if not self._odom_valid(odom):
+                self._target_world_queue.clear()
+                x_cmd, y_cmd, z_cmd = float(x_body), float(y_body), float(z_body)
+                fusion_note = "no valid platform_odom"
+            else:
+                q = odom.pose.pose.orientation
+                R_i = self._quaternion_to_R_body_to_world(q.x, q.y, q.z, q.w)
+                t_i = np.array(
+                    [
+                        odom.pose.pose.position.x,
+                        odom.pose.pose.position.y,
+                        odom.pose.pose.position.z,
+                    ],
+                    dtype=np.float64,
+                )
+                #Matmult
+                p_world_i = R_i @ p_body + t_i
+                self._target_world_queue.append((p_world_i, conf))
+                p_fused = self._weighted_world_mean(self._target_world_queue)
+                
+                if p_fused is None:
+                    p_fused = p_world_i
+                v_world = p_fused - t_i
+                v_body = R_i.T @ v_world
+                x_cmd, y_cmd, z_cmd = float(v_body[0]), float(v_body[1]), float(v_body[2])
+                fusion_note = (
+                    f"fused_world=({p_fused[0]:.3f},{p_fused[1]:.3f},{p_fused[2]:.3f}) "
+                    f"queue={len(self._target_world_queue)}"
+                )
+
             cmd = PoseStamped()
             cmd.header.stamp = self.get_clock().now().to_msg()
             cmd.header.frame_id = "base_link"
-            cmd.pose.position.x = float(x_body)
-            cmd.pose.position.y = float(y_body)
-            cmd.pose.position.z = float(z_body)
+            cmd.pose.position.x = x_cmd
+            cmd.pose.position.y = y_cmd
+            cmd.pose.position.z = z_cmd
             cmd.pose.orientation.w = 1.0
 
             self.cmd_pub.publish(cmd)
@@ -201,7 +282,9 @@ class BridgeDetection(Node):
                 f"bbox=({x1},{y1})-({x2},{y2}) | "
                 f"depth={depth_m:.3f} m | "
                 f"cam=({x_cam:.3f}, {y_cam:.3f}, {z_cam:.3f}) | "
-                f"body=({x_body:.3f}, {y_body:.3f}, {z_body:.3f})"
+                f"body_instant=({x_body:.3f}, {y_body:.3f}, {z_body:.3f}) | "
+                f"cmd_body=({x_cmd:.3f}, {y_cmd:.3f}, {z_cmd:.3f}) | "
+                f"{fusion_note}"
             )
 
         except Exception as e:

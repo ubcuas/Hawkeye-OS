@@ -26,7 +26,9 @@ from rclpy.qos import (
     ReliabilityPolicy,
     qos_profile_sensor_data,
 )
-from sensor_msgs.msg import CameraInfo, CompressedImage
+
+from nav_msgs.msg import Odometry
+from sensor_msgs.msg import CameraInfo, CompressedImage, Imu
 from std_msgs.msg import Bool
 
 _LOG_RULE = "=================================================="
@@ -335,6 +337,11 @@ class BridgePipelineTestNode(Node):
         msg.depth_data = CompressedImage()
         msg.depth_data.format = "png"
         msg.depth_data.data = enc_depth.tobytes()
+        msg.imu_data = Imu()
+        msg.platform_odom = Odometry()
+        msg.platform_odom.pose.pose.orientation.w = 1.0
+        msg.platform_odom.header.frame_id = "odom"
+        msg.platform_odom.child_frame_id = "base_link"
         msg.bounding_box = [p1, p2]
         msg.confidence_level = 0.95
         return msg, p1, p2
