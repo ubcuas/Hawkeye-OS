@@ -7,10 +7,45 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import Bool
-from sensor_msgs.msg import CameraInfo
 from hawkeye_msgs.msg import TaggedImage
 
 
+# Fixed camera intrinsics (Brown-Conrady / plumb_bob model).
+# Values from CameraInfo K/d for camera_color_optical_frame (1280x720).
+# These may be subject to change (recalibration, resolution, or camera hardware).
+CAMERA_WIDTH = 1280
+CAMERA_HEIGHT = 720
+CAMERA_INTRINSICS = {
+    "fx": 644.648681640625,
+    "fy": 643.7971801757812,
+    "ppx": 638.689453125,
+    "ppy": 383.8777160644531,
+}
+# Brown-Conrady distortion coefficients [k1, k2, p1, p2, k3]
+DISTORTION_COEFFS = [
+    -0.05599868297576904,
+    0.06472615152597427,
+    -8.93151736818254e-05,
+    -7.332695531658828e-05,
+    -0.020574895665049553,
+]
+
+# WRONG BUT KEPT FOR POSTERITY
+
+# CAMERA_INTRINSICS = {
+#     "fx": 643.2360229492188,
+#     "fy": 642.1893920898438,
+#     "ppx": 661.8545532226562,
+#     "ppy": 365.9696044921875,
+# }
+# # Brown-Conrady distortion coefficients [k1, k2, p1, p2, k3]
+# DISTORTION_COEFFS = [
+#     -0.05651168152689934,
+#     0.06660270690917969,
+#     -0.00015544862253591418,
+#     0.0008432056056335568,
+#     -0.02149238809943199,
+# ]
 # ==========================
 # Tunable parameters
 # ==========================
@@ -63,13 +98,8 @@ class BridgeDetection(Node):
             "/drone/cmd_pose",
             qos_reliable,
         )
-        
-        self.depth_info_sub = self.create_subscription(
-            CameraInfo,
-            "/camera/camera/depth/camera_info",
-            self.depth_info_cb,
-            qos_reliable,
-        )
+
+        self._init_depth_intrinsics_from_constants()
 
         self.get_logger().info("Detection bridge started")
         self.get_logger().info("Listening on /object_detection/tagged_image")
@@ -77,27 +107,17 @@ class BridgeDetection(Node):
 
     def mission_state_cb(self, msg: Bool):
         self.mission_active = msg.data
-        
-    def depth_info_cb(self, msg: CameraInfo):
+
+    def _init_depth_intrinsics_from_constants(self):
         intr = rs.intrinsics()
-        intr.width = int(msg.width)
-        intr.height = int(msg.height)
-        intr.ppx = float(msg.k[2])   # cx
-        intr.ppy = float(msg.k[5])   # cy
-        intr.fx = float(msg.k[0])    # fx
-        intr.fy = float(msg.k[4])    # fy
-
-        # Distortion model mapping
-        if msg.distortion_model == "plumb_bob":
-            intr.model = rs.distortion.brown_conrady
-        elif msg.distortion_model == "equidistant":
-            intr.model = rs.distortion.kannala_brandt4
-        else:
-            intr.model = rs.distortion.none
-
-        coeffs = list(msg.d)
-        coeffs = coeffs[:5] + [0.0] * max(0, 5 - len(coeffs))
-        intr.coeffs = coeffs[:5]
+        intr.width = CAMERA_WIDTH
+        intr.height = CAMERA_HEIGHT
+        intr.ppx = float(CAMERA_INTRINSICS["ppx"])
+        intr.ppy = float(CAMERA_INTRINSICS["ppy"])
+        intr.fx = float(CAMERA_INTRINSICS["fx"])
+        intr.fy = float(CAMERA_INTRINSICS["fy"])
+        intr.model = rs.distortion.brown_conrady
+        intr.coeffs = list(DISTORTION_COEFFS)[:5]
 
         self.depth_intrinsics = intr
         self.have_depth_intrinsics = True

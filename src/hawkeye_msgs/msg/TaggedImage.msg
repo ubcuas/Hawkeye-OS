@@ -1,7 +1,8 @@
 sensor_msgs/CompressedImage image_data
 sensor_msgs/CompressedImage depth_data
-sensor_msgs/Imu imu_data
 sensor_msgs/NavSatFix gps_data
+geometry_msgs/Quaternion imu_orientation
+float64 yaw_deg
 uint8 color_r
 uint8 color_g
 uint8 color_b

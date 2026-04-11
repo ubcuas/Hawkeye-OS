@@ -1,9 +1,17 @@
 import asyncio
 import base64
 import json
+import logging
+import math
 import traceback
 import cv2
 import numpy as np
+
+# Suppress noisy internal logs from socketio/engineio/aiohttp
+logging.getLogger("socketio").setLevel(logging.WARNING)
+logging.getLogger("engineio").setLevel(logging.WARNING)
+logging.getLogger("aiohttp").setLevel(logging.WARNING)
+
 import rclpy
 from aiortc import (
     RTCConfiguration,
@@ -54,16 +62,22 @@ class StreamingNode(Node):
             ]
         )
 
-        # # Subscribe to video feed — mock pipeline (mock_object_detection publishes here)
-        # self.image_subscription = self.create_subscription(
-        #     CompressedImage, "color/image_raw/compressed", self._route_image_to_track, 10
-        # )
+        # Subscribe to video feed — mock pipeline (mock_object_detection publishes here)
+        self.image_subscription = self.create_subscription(
+            CompressedImage,
+            "color/image_raw/compressed",
+            self._route_image_to_track,
+            10,
+        )
 
         # Subscribe to image_processor output — real camera pipeline (rs_hawkeye_launch)
         # image_processor synchronizes color+depth and publishes TaggedImage; we pull the
         # color frame from it to drive the WebRTC video track.
         self.image_processor_subscription = self.create_subscription(
-            CompressedImage, "/camera/camera/color/image_raw/compressed", self._route_image_to_track, 10
+            CompressedImage,
+            "/camera/camera/color/image_raw/compressed",
+            self._route_image_to_track,
+            10,
         )
 
         # Subscribe to tagged images from object detection
@@ -80,7 +94,9 @@ class StreamingNode(Node):
         self.get_logger().info("Streaming node initialized")
         self.get_logger().info(f"Signaling server URL: {self.signaling_url}")
         self.get_logger().info("Subscribed to: color/image_raw/compressed (mock)")
-        self.get_logger().info("Subscribed to: /image_processor/tagged_image (real camera)")
+        self.get_logger().info(
+            "Subscribed to: /image_processor/tagged_image (real camera)"
+        )
         self.get_logger().info("Subscribed to: object_detection/tagged_image")
 
     def _route_image_to_track(self, msg: CompressedImage):
@@ -98,8 +114,6 @@ class StreamingNode(Node):
         if not self.data_channel or self.data_channel.readyState != "open":
             return
 
-        self.get_logger().info("GOT TO STREAMING!")
-
         if not msg.image_data.data:
             self.get_logger().warn("Empty color image data. Skipping.")
             return
@@ -112,11 +126,11 @@ class StreamingNode(Node):
         if color_frame is None:
             self.get_logger().error("Failed to decode color CompressedImage")
             return
-            
+
         _, color_jpeg = cv2.imencode(".jpg", color_frame)
         color_b64 = base64.b64encode(color_jpeg.tobytes()).decode("utf-8")
 
-        depth_b64 = ""
+        depth_b64 = None
         if msg.depth_data.data:
             depth_arr = np.frombuffer(msg.depth_data.data, dtype=np.uint8)
             if depth_arr.size > 0:
@@ -128,13 +142,26 @@ class StreamingNode(Node):
             else:
                 self.get_logger().warn("malformed depth data. Skipping.")
         # --- 3. SEND PAYLOAD ---
+        q = msg.imu_orientation
+        yaw = msg.yaw_deg
         payload = json.dumps(
             {
-                "image_data": color_b64,       # Now sending the actual color image
-                "depth_data": depth_b64,       # Added a new key for the depth image
+                "image_data": color_b64,  # Now sending the actual color image
+                "depth_data": depth_b64,  # Added a new key for the depth image
                 "color_detection": [msg.color_r, msg.color_g, msg.color_b],
-                "bounding_box": [[pt.x, pt.y] for pt in msg.bounding_box],
+                # Normalize bbox coords to 0-1 range; GCOM renders against viewBox="0 0 1 1"
+                "bounding_box": [
+                    [pt.x / color_frame.shape[1], pt.y / color_frame.shape[0]]
+                    for pt in msg.bounding_box
+                ],
                 "confidence_level": msg.confidence_level,
+                "imu_orientation": {
+                    "x": q.x,
+                    "y": q.y,
+                    "z": q.z,
+                    "w": q.w,
+                },
+                "yaw_deg": None if math.isnan(yaw) else yaw,
             }
         )
         self.data_channel.send(payload)

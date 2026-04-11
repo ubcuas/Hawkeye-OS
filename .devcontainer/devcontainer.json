@@ -49,7 +49,7 @@
     }
   },
 
-  "postCreateCommand": "sudo pip3 install --quiet git+https://github.com/openai/CLIP.git && sudo chown -R ros:ros /ros2_ws/build /ros2_ws/install 2>/dev/null || true && sudo apt-get update && rosdep update && sudo rosdep install --from-paths src --ignore-src -y && sudo /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh && bash -c 'source /opt/ros/humble/setup.bash && colcon build --symlink-install'",
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
 
   "forwardPorts": [],
 

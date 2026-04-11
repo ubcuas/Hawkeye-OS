@@ -17,15 +17,8 @@ services:
       - render
       - i2c
 
-    # adding nvidia runtime
-    runtime: nvidia
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+    # NVIDIA GPU runtime lives in docker-compose.gpu.yml — on Jetson run with:
+    #   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up
     volumes:
       # FIX 2: Replaced - /dev:/dev with specific camera paths to avoid breaking NVIDIA runtime
       - /dev/bus/usb:/dev/bus/usb
