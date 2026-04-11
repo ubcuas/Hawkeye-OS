@@ -148,8 +148,10 @@ class Orchestrator(Node):
             if action == "TAKE_PHOTO":
                 self.get_logger().info("Executing GCOM Photo Request...")
                 self.publish_ack(action, status="COMMAND_RECEIVED")
-                # Logic to trigger camera goes here
-                pass
+                trigger = String()
+                trigger.data = "TAKE_PHOTO"
+                self.image_request_pub.publish(trigger)
+                self.publish_ack(action, status="COMMAND_EXECUTED")
 
     def publish_ack(self, action, status, detail=None):
         ack = {
