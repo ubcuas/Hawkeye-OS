@@ -1,10 +1,17 @@
 import asyncio
 import base64
 import json
+import logging
 import math
 import traceback
 import cv2
 import numpy as np
+
+# Suppress noisy internal logs from socketio/engineio/aiohttp
+logging.getLogger("socketio").setLevel(logging.WARNING)
+logging.getLogger("engineio").setLevel(logging.WARNING)
+logging.getLogger("aiohttp").setLevel(logging.WARNING)
+
 import rclpy
 from aiortc import (
     RTCConfiguration,
@@ -117,7 +124,7 @@ class StreamingNode(Node):
         _, color_jpeg = cv2.imencode(".jpg", color_frame)
         color_b64 = base64.b64encode(color_jpeg.tobytes()).decode("utf-8")
 
-        depth_b64 = ""
+        depth_b64 = None
         if msg.depth_data.data:
             depth_arr = np.frombuffer(msg.depth_data.data, dtype=np.uint8)
             if depth_arr.size > 0:
@@ -136,7 +143,11 @@ class StreamingNode(Node):
                 "image_data": color_b64,       # Now sending the actual color image
                 "depth_data": depth_b64,       # Added a new key for the depth image
                 "color_detection": [msg.color_r, msg.color_g, msg.color_b],
-                "bounding_box": [[pt.x, pt.y] for pt in msg.bounding_box],
+                # Normalize bbox coords to 0-1 range; GCOM renders against viewBox="0 0 1 1"
+                "bounding_box": [
+                    [pt.x / color_frame.shape[1], pt.y / color_frame.shape[0]]
+                    for pt in msg.bounding_box
+                ],
                 "confidence_level": msg.confidence_level,
                 "imu_orientation": {
                     "x": q.x,
