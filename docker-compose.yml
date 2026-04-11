@@ -9,6 +9,7 @@ services:
     stdin_open: true
     tty: true
     privileged: true
+    restart: always
     
     # FIX 1: Add groups so the 'ros' user can access the GPU memory manager
     group_add:
@@ -36,7 +37,7 @@ services:
       - ./test_images:/ros2_ws/test_images
       
     working_dir: /ros2_ws
-    command: bash -lc "sudo chmod 666 /dev/nvmap /dev/nvhost-* && sudo chown -R ros:ros /ros2_ws/build /ros2_ws/install && source /opt/ros/humble/setup.bash && colcon build --packages-skip imaging && source install/setup.bash && tail -f /dev/null"
+    command: bash -lc "sudo chmod 666 /dev/nvmap /dev/nvhost-* && sudo chown -R ros:ros /ros2_ws/build /ros2_ws/install && source /opt/ros/humble/setup.bash && colcon build --packages-skip imaging && source install/setup.bash && tail -f /dev/null && ros2 launch imaging_realsense rs_hawkeye_launch.py"
     network_mode: host
     environment:
       - DISPLAY=${DISPLAY}

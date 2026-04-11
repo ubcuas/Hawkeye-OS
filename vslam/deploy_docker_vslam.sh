@@ -26,8 +26,8 @@ if [ "$(docker ps -a --quiet --filter status=running --filter name=$CONTAINER_NA
     print_info "Attaching to running container: $CONTAINER_NAME"
     ISAAC_ROS_WS=$(docker exec $CONTAINER_NAME printenv ISAAC_ROS_WS)
     print_info "Docker workspace: $ISAAC_ROS_WS"
-    #docker exec -i -t -u admin --workdir $ISAAC_ROS_WS $CONTAINER_NAME /bin/bash $@
-    docker exec -u admin --workdir $ISAAC_ROS_WS $CONTAINER_NAME /bin/bash -c "source /usr/local/bin/scripts/deploy-entrypoint.sh && ros2 launch isaac_ros_visual_slam isaac_ros_visual_slam_realsense.launch.py"
+    docker exec -i -t -u admin --workdir $ISAAC_ROS_WS $CONTAINER_NAME /bin/bash $@
+    # docker exec -u admin --workdir $ISAAC_ROS_WS $CONTAINER_NAME /bin/bash -c "source /usr/local/bin/scripts/deploy-entrypoint.sh && ros2 launch isaac_ros_visual_slam isaac_ros_visual_slam_realsense.launch.py"
     exit 0
 fi
 
