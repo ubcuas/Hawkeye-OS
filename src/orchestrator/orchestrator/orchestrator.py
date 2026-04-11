@@ -6,6 +6,7 @@ from rclpy.node import Node
 from rclpy.executors import SingleThreadedExecutor 
 from std_msgs.msg import String
 from sensor_msgs.msg import Image
+from hawkeye_msgs.msg import TaggedImage
 import paho.mqtt.client as mqtt
 
 # MQTT Configuration (GCOM Connection)
@@ -41,6 +42,10 @@ class Orchestrator(Node):
         # ROS publishers and subscribers
         self.image_request_pub = self.create_publisher(String, self.image_request_topic, 10)
         self.object_detection_sub = self.create_subscription(Image, self.object_detection_topic, self.image_callback, 10)
+        self.object_detection_pub = self.create_publisher(TaggedImage, "/object_detection/tagged_image", 10)
+
+        self.latest_tagged_image: TaggedImage | None = None
+        self.create_subscription(TaggedImage, "/image_processor/tagged_image", self._on_tagged_image, 10)
 
         # --- MQTT Communication (GCOM Link) ---
         self.mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, "Drone_Orchestrator")
@@ -117,6 +122,10 @@ class Orchestrator(Node):
         self.get_logger().info('IMAGE CALLBACK: Added to queue')
 
 
+    def _on_tagged_image(self, msg: TaggedImage):
+        """Cache the latest TaggedImage from image_processor."""
+        self.latest_tagged_image = msg
+
     def ros_callback(self, msg):
         self.get_logger().info(f'Received ROS message: {msg.data if hasattr(msg, "data") else str(msg)}')
         asyncio.run_coroutine_threadsafe(
@@ -130,7 +139,7 @@ class Orchestrator(Node):
             self.get_logger().info('PROCESS: Waiting for image from queue...')
             img_msg = await self.image_queue.get()
             self.get_logger().info('PROCESS: Got image')
-            # TODO: Add image processing logic here
+            await self.handle_request(img_msg)
 
     async def handle_request(self, msg):
         """Logic Router"""
@@ -152,6 +161,11 @@ class Orchestrator(Node):
                 trigger.data = "TAKE_PHOTO"
                 self.image_request_pub.publish(trigger)
                 self.publish_ack(action, status="COMMAND_EXECUTED")
+                if self.latest_tagged_image is not None:
+                    self.object_detection_pub.publish(self.latest_tagged_image)
+                    self.get_logger().info("Published latest TaggedImage to /object_detection/tagged_image")
+                else:
+                    self.get_logger().warn("TAKE_PHOTO: no TaggedImage cached yet, skipping publish")
 
     def publish_ack(self, action, status, detail=None):
         ack = {
