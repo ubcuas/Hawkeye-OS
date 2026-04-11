@@ -28,7 +28,6 @@ DEPTH_TOPIC = "/camera/camera/aligned_depth_to_color/image_raw"
 # COLOR_TOPIC = "color/image_raw/compressed"
 # DEPTH_TOPIC = "/depth/image_rect_raw/compressed"
 
-IMU_TOPIC   = "/camera/camera/imu"
 GPS_TOPIC   = "/gps/fix"
 
 OUTPUT_TOPIC = "/image_processor/tagged_image"
@@ -52,7 +51,6 @@ class ImageProcessor(Node):
 
         # Cache for optional metadata
         self.latest_gps = None
-        self.latest_imu = None
         self.latest_yaw_deg = None  # None → publish yaw_deg as NaN on TaggedImage
         self.latest_yaw_stamp_sec = None  # from Imu; for future synchronization
         self.latest_imu_orientation = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
@@ -104,7 +102,6 @@ class ImageProcessor(Node):
         self.get_logger().info(f'Subscribed to depth: {DEPTH_TOPIC}')
         self.get_logger().info(f'Publishing TaggedImage to: {OUTPUT_TOPIC}')
         self.get_logger().info(f'Sync slop: {SYNC_SLOP}s')
-        self.get_logger().info(f'Subscribed to IMU: {IMU_TOPIC}')
         self.get_logger().info(f'Subscribed to MAVROS IMU: {MAVROS_IMU_TOPIC}')
 
     def synchronized_callback(self, color_msg: CompressedImage, depth_msg: Image):
@@ -134,9 +131,6 @@ class ImageProcessor(Node):
         tagged = TaggedImage()
         tagged.image_data = color_msg
         tagged.depth_data = depth_compressed
-
-        if self.latest_imu is not None:
-            tagged.imu_data = self.latest_imu
 
         if self.latest_gps is not None:
             tagged.gps_data = self.latest_gps
@@ -195,7 +189,6 @@ class ImageProcessor(Node):
         self.latest_yaw_stamp_sec = stamp_sec
         self.latest_yaw_deg = yaw_deg
         self.latest_imu_orientation = orientation
-        self.latest_imu = msg
 
 
 def main(args=None):
