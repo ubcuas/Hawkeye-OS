@@ -136,8 +136,8 @@ class YoloDetector:
             )
             
             processed_images.append((
-                (x1, y1, x2, y2), 
-                conf, 
+                (x1, y1, x2, y2),
+                float(conf),
                 color_name)
             )
 
