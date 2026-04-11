@@ -11,26 +11,41 @@ from hawkeye_msgs.msg import TaggedImage
 
 
 # Fixed camera intrinsics (Brown-Conrady / plumb_bob model).
-# Values from: ros2 topic echo /camera/camera/color/camera_info (1280x720).
+# Values from CameraInfo K/d for camera_color_optical_frame (1280x720).
 # These may be subject to change (recalibration, resolution, or camera hardware).
 CAMERA_WIDTH = 1280
 CAMERA_HEIGHT = 720
 CAMERA_INTRINSICS = {
-    "fx": 643.2360229492188,
-    "fy": 642.1893920898438,
-    "ppx": 661.8545532226562,
-    "ppy": 365.9696044921875,
+    "fx": 644.648681640625,
+    "fy": 643.7971801757812,
+    "ppx": 638.689453125,
+    "ppy": 383.8777160644531,
 }
 # Brown-Conrady distortion coefficients [k1, k2, p1, p2, k3]
 DISTORTION_COEFFS = [
-    -0.05651168152689934,
-    0.06660270690917969,
-    -0.00015544862253591418,
-    0.0008432056056335568,
-    -0.02149238809943199,
+    -0.05599868297576904,
+    0.06472615152597427,
+    -8.93151736818254e-05,
+    -7.332695531658828e-05,
+    -0.020574895665049553,
 ]
 
+# WRONG BUT KEPT FOR POSTERITY
 
+# CAMERA_INTRINSICS = {
+#     "fx": 643.2360229492188,
+#     "fy": 642.1893920898438,
+#     "ppx": 661.8545532226562,
+#     "ppy": 365.9696044921875,
+# }
+# # Brown-Conrady distortion coefficients [k1, k2, p1, p2, k3]
+# DISTORTION_COEFFS = [
+#     -0.05651168152689934,
+#     0.06660270690917969,
+#     -0.00015544862253591418,
+#     0.0008432056056335568,
+#     -0.02149238809943199,
+# ]
 # ==========================
 # Tunable parameters
 # ==========================
