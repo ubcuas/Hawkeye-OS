@@ -23,6 +23,7 @@ from aiortc.sdp import candidate_from_sdp
 from rclpy.executors import SingleThreadedExecutor
 from rclpy.node import Node
 from sensor_msgs.msg import Image, CompressedImage
+from std_msgs.msg import String
 
 from hawkeye_msgs.msg import TaggedImage
 from streaming.constants import WEBRTC_SIGNALING_URL
@@ -51,6 +52,7 @@ class StreamingNode(Node):
         self.ice_gathering_complete = False
 
         self._received_frame_count = 0
+        self.latest_tagged_image_msg = None
 
         self.video_track = ROSVideoStreamTrack(self.get_logger())
 
@@ -85,6 +87,15 @@ class StreamingNode(Node):
             TaggedImage, "object_detection/tagged_image", self._route_tagged_image, 10
         )
 
+        # Subscribe to manual capture requests from the orchestrator
+        import os
+        self.capture_request_subscription = self.create_subscription(
+            String,
+            os.getenv("IMAGE_REQUEST_TOPIC", "image_request"),
+            self._on_capture_request,
+            10,
+        )
+
         # Register Socket.IO event handlers
         self.signaling_handler = SignalingHandler(
             signaling_url=self.signaling_url, logger=self.get_logger(), node=self
@@ -109,8 +120,16 @@ class StreamingNode(Node):
         if self.video_track and msg.image_data.data:
             self.video_track.put_image(msg.image_data)
 
+    def _on_capture_request(self, msg: String):
+        """Send the latest cached TaggedImage when a manual capture is requested."""
+        if self.latest_tagged_image_msg is None:
+            self.get_logger().warn("Capture requested but no tagged image cached yet.")
+            return
+        self._route_tagged_image(self.latest_tagged_image_msg)
+
     def _route_tagged_image(self, msg: TaggedImage):
         """Forward tagged image and metadata to GCOM via the data channel"""
+        self.latest_tagged_image_msg = msg
         if not self.data_channel or self.data_channel.readyState != "open":
             return
 
