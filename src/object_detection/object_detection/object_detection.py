@@ -84,11 +84,14 @@ class ObjectDetection(Node):
             box_points.append(Point32(x=float(x2), y=float(y2), z=0.0))
 
             color_map = {
-                "blue": (0, 0, 255),
-                "green": (0, 255, 0),
-                "red": (255, 0, 0),
+                "red":    (255,   0,   0),
+                "yellow": (255, 255,   0),
+                "green":  (  0, 255,   0),
+                "blue":   (  0,   0, 255),
+                "black":  (  0,   0,   0),
+                "white":  (255, 255, 255),
             }
-            color_rgb = color_map.get(color_name, (1,2,3))
+            color_rgb = color_map.get(color_name, (1, 2, 3))  # (1,2,3) = unknown sentinel
 
             # Re-publish as annotated TaggedImage, preserving depth + metadata
             self.process_pub.publish(
