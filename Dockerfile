@@ -20,6 +20,8 @@ RUN apt-get update && apt-get install -y curl gnupg2 lsb-release \
     && apt-get update && apt-get install -y ros-humble-ros-base \
     && rm -rf /var/lib/apt/lists/*
 
+# maybe not ros base
+
 # Create non-root user with sudo
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid $USER_GID $USERNAME \
