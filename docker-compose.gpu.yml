@@ -1,0 +1,10 @@
+services:
+  ros2_workspace:
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

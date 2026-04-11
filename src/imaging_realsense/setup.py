@@ -12,7 +12,6 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', [
             'launch/rs_hawkeye_launch.py',
-            'launch/rs_hawkeye_synced_launch.py'
         ]),
     ],
     install_requires=['setuptools'],
@@ -25,7 +24,6 @@ setup(
     entry_points={
         'console_scripts': [
             'image_processor = imaging_realsense.image_processor:main',
-            'image_processor_synced = imaging_realsense.image_processor_synced:main',
         ],
     },
 )
