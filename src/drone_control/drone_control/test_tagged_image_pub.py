@@ -8,7 +8,7 @@ import rclpy
 from geometry_msgs.msg import Point32
 from hawkeye_msgs.msg import TaggedImage
 from rclpy.node import Node
-from sensor_msgs.msg import CompressedImage, NavSatFix
+from sensor_msgs.msg import CompressedImage
 
 _LOG_RULE = "=================================================="
 
@@ -57,9 +57,6 @@ class TestTaggedImagePublisher(Node):
         msg.depth_data = CompressedImage()
         msg.depth_data.format = "png"
         msg.depth_data.data = encoded_depth.tobytes()
-
-        # Minimal GPS
-        msg.gps_data = NavSatFix()
 
         # Bbox center -> ~11.5 m forward, ~10 m up in body frame (with matching intrinsics)
         msg.bounding_box = [
