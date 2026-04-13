@@ -98,7 +98,8 @@ class ObjectDetection(Node):
                 TaggedImage(
                     image_data=color_msg,
                     depth_data=depth_msg,
-                    gps_data=tagged_img_msg.gps_data,
+                    platform_odom=tagged_img_msg.platform_odom,
+                    imu_data=tagged_img_msg.imu_data,
                     imu_orientation=tagged_img_msg.imu_orientation,
                     yaw_deg=tagged_img_msg.yaw_deg,
                     color_r=color_rgb[0],

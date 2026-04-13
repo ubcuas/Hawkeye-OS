@@ -55,6 +55,7 @@ DEBUG_FLAG = True
 CAMERA_X_OFFSET_M = 0.0
 CAMERA_Y_OFFSET_M = 0.0
 CAMERA_Z_OFFSET_M = 0.0
+CONFIDENCE_QUEUE_SIZE = 5
 
 
 class BridgeDetection(Node):
@@ -65,6 +66,8 @@ class BridgeDetection(Node):
         self.depth_intrinsics = None
         self.have_depth_intrinsics = False
 
+        confidence_queue = []
+        
         qos_reliable = QoSProfile(
             reliability=ReliabilityPolicy.RELIABLE,
             history=HistoryPolicy.KEEP_LAST,
