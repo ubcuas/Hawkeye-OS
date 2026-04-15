@@ -66,14 +66,20 @@ WORKDIR /ros2_ws
 
 COPY ./setup_env.sh /ros2_ws/setup_env.sh
 
+# uv — fast pip-compatible installs (binary matches build arch, e.g. arm64 on Jetson)
+COPY --from=ghcr.io/astral-sh/uv:0.11.6 /uv /uvx /bin/
+ENV UV_SYSTEM_PYTHON=1
+
 # Install Python packages
 COPY requirements.txt /tmp/requirements.txt
-RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
-RUN pip3 install --no-cache-dir git+https://github.com/openai/CLIP.git
+RUN uv pip install --no-cache -r /tmp/requirements.txt
+RUN uv pip install --no-cache git+https://github.com/openai/CLIP.git
 
 # Use Jetson torch
-RUN pip3 uninstall -y torch torchvision || true
-RUN pip3 install --no-cache-dir --index-url https://pypi.jetson-ai-lab.io/jp6/cu126 torch torchvision
+RUN uv pip uninstall -y torch torchvision || true
+RUN uv pip install --no-cache \
+    --index-url https://pypi.jetson-ai-lab.io/jp6/cu126 \
+    torch torchvision
 
 # CUDA / cuDSS setup
 RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/arm64/cuda-keyring_1.1-1_all.deb \
@@ -82,7 +88,7 @@ RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/arm
     && apt-get install -y cudss \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install pyrealsense2
+RUN uv pip install --no-cache pyrealsense2
 
 # Set the Ultralytics config directory to a writable location
 # Disable auto-install so ultralytics doesn't try to re-install CLIP at runtime

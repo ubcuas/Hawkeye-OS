@@ -1,13 +1,15 @@
 import asyncio
 import json
 import os
-import rclpy
-from rclpy.node import Node
-from rclpy.executors import SingleThreadedExecutor 
-from std_msgs.msg import String
-from sensor_msgs.msg import Image
-from hawkeye_msgs.msg import TaggedImage
+
 import paho.mqtt.client as mqtt
+import rclpy
+from rclpy.executors import SingleThreadedExecutor
+from rclpy.node import Node
+from sensor_msgs.msg import Image
+from std_msgs.msg import String
+
+from hawkeye_msgs.msg import TaggedImage
 
 # MQTT Configuration (GCOM Connection)
 MQTT_BROKER = "broker.hivemq.com" # Replace with your VPS IP for production
@@ -180,7 +182,7 @@ class Orchestrator(Node):
         """Producer Loop"""
         while rclpy.ok():
             msg = await self.outgoing_queue.get()
-            self.get_logger().info(f'Publishing image request')
+            self.get_logger().info('Publishing image request')
             self.image_request_pub.publish(msg)
 
 async def async_main(args=None):

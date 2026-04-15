@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 
 import math
+
 import cv2
+import message_filters
 import numpy as np
 import rclpy
-import message_filters
+from geometry_msgs.msg import Quaternion
 from rclpy.node import Node
 from rclpy.qos import QoSPresetProfiles
-from geometry_msgs.msg import Quaternion
 from sensor_msgs.msg import CompressedImage, Image, Imu
-from sensor_msgs.msg import NavSatFix
 from hawkeye_msgs.msg import TaggedImage
 
 """

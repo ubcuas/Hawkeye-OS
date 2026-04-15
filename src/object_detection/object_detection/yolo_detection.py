@@ -1,8 +1,7 @@
+
 import cv2
 import numpy as np
 import torch
-from rclpy.node import Node
-import os
 
 # --- PyTorch 2.6 compatibility ---
 # PyTorch 2.6+ defaults torch.load(weights_only=True) which blocks loading
@@ -14,7 +13,6 @@ import os
 #     kwargs.setdefault("weights_only", False)
 #     return _original_torch_load(*args, **kwargs)
 # torch.load = _patched_torch_load
-
 from ultralytics import YOLOE
 
 # --- Configuration ---
@@ -65,14 +63,21 @@ class YoloDetector:
         mean_bgr = masked.mean(axis=0).astype(np.uint8)
 
         # Check achromatic first (black/white require low saturation)
-        if v < 40:                      return "black",   tuple(int(x) for x in mean_bgr)
-        if s < 40 and v > 180:          return "white",   tuple(int(x) for x in mean_bgr)
-        if s < 40:                      return "black",   tuple(int(x) for x in mean_bgr)
+        if v < 40:
+            return "black", tuple(int(x) for x in mean_bgr)
+        if s < 40 and v > 180:
+            return "white", tuple(int(x) for x in mean_bgr)
+        if s < 40:
+            return "black", tuple(int(x) for x in mean_bgr)
         # Red wraps around 0/180 in OpenCV HSV
-        if h <= 15 or h >= 165:         return "red",     tuple(int(x) for x in mean_bgr)
-        if 20 <= h <= 38:               return "yellow",  tuple(int(x) for x in mean_bgr)
-        if 40 <= h <= 90:               return "green",   tuple(int(x) for x in mean_bgr)
-        if 90 <= h <= 135:              return "blue",    tuple(int(x) for x in mean_bgr)
+        if h <= 15 or h >= 165:
+            return "red", tuple(int(x) for x in mean_bgr)
+        if 20 <= h <= 38:
+            return "yellow", tuple(int(x) for x in mean_bgr)
+        if 40 <= h <= 90:
+            return "green", tuple(int(x) for x in mean_bgr)
+        if 90 <= h <= 135:
+            return "blue", tuple(int(x) for x in mean_bgr)
         return "unknown", tuple(int(x) for x in mean_bgr)
 
 

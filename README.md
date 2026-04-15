@@ -38,6 +38,25 @@ Install required Python Packages:
 pip install websockets aiortc av opencv-python numpy
 ```
 
+### Linting (Ruff)
+
+Ruff is configured in `pyproject.toml` at the repo root. Install the `ruff` CLI once so it is on your `PATH` (pick one):
+
+```bash
+pipx install ruff
+```
+
+Other options: `brew install ruff` (macOS), or `uv tool install ruff` if you use uv.
+
+From the **Hawkeye-OS** root, run:
+
+```bash
+ruff check .
+ruff check . --fix
+```
+
+`--fix` applies Ruff’s safe auto-fixes. Anything it cannot fix will still be reported; resolve those edits manually.
+
 ### Building the Image for the First Time (Manual)
 Build the image (in project root)
 ```bash

@@ -1,12 +1,11 @@
-import asyncio
-import os
+import time
+
 import rclpy
-from rclpy.node import Node
-from rclpy.executors import SingleThreadedExecutor
 from geometry_msgs.msg import Point32
+from rclpy.node import Node
+
 from hawkeye_msgs.msg import TaggedImage
 from object_detection import yolo_detection
-import time
 
 """
 Object Detection node

@@ -4,14 +4,9 @@ import json
 import logging
 import math
 import traceback
+
 import cv2
 import numpy as np
-
-# Suppress noisy internal logs from socketio/engineio/aiohttp
-logging.getLogger("socketio").setLevel(logging.WARNING)
-logging.getLogger("engineio").setLevel(logging.WARNING)
-logging.getLogger("aiohttp").setLevel(logging.WARNING)
-
 import rclpy
 from aiortc import (
     RTCConfiguration,
@@ -22,13 +17,18 @@ from aiortc import (
 from aiortc.sdp import candidate_from_sdp
 from rclpy.executors import SingleThreadedExecutor
 from rclpy.node import Node
-from sensor_msgs.msg import Image, CompressedImage
+from sensor_msgs.msg import CompressedImage
 from std_msgs.msg import String
 
 from hawkeye_msgs.msg import TaggedImage
 from streaming.constants import WEBRTC_SIGNALING_URL
 from streaming.signaling_handler import SignalingHandler
 from streaming.video_track import ROSVideoStreamTrack
+
+# Suppress noisy internal logs from socketio/engineio/aiohttp
+logging.getLogger("socketio").setLevel(logging.WARNING)
+logging.getLogger("engineio").setLevel(logging.WARNING)
+logging.getLogger("aiohttp").setLevel(logging.WARNING)
 
 """
 Streaming Node

@@ -1,8 +1,8 @@
 import asyncio
-import socketio
 import traceback
 
 import rclpy
+import socketio
 from rclpy.impl.rcutils_logger import RcutilsLogger
 
 """Signaling handler for managing WebRTC signaling via Socket.IO
