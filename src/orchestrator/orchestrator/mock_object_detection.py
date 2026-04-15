@@ -6,11 +6,11 @@ Reads video from test_images/ folder and publishes frames continuously
 to simulate a live camera feed for WebRTC streaming.
 """
 
+import cv2
+import numpy as np
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import CompressedImage
-import cv2
-import numpy as np
 
 
 class MockObjectDetection(Node):

@@ -9,8 +9,9 @@ and GCOM system by coordinating the exchange of session descriptions
 
 import logging
 from typing import Set
-from aiohttp import web
+
 import socketio
+from aiohttp import web
 
 # Configure logging
 logging.basicConfig(

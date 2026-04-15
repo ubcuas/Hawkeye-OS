@@ -6,9 +6,10 @@ import cv2
 import numpy as np
 import rclpy
 from geometry_msgs.msg import Point32
-from hawkeye_msgs.msg import TaggedImage
 from rclpy.node import Node
 from sensor_msgs.msg import CompressedImage
+
+from hawkeye_msgs.msg import TaggedImage
 
 _LOG_RULE = "=================================================="
 
@@ -38,7 +39,7 @@ class TestTaggedImagePublisher(Node):
 
         depth_m = 11.5
         img_cx, img_cy = 320, 240
-        fx, fy = 600.0, 600.0
+        fy = 600.0
         v_offset = img_cy - int(10.0 * fy / depth_m)
 
         msg = TaggedImage()

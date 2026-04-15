@@ -6,14 +6,14 @@ Publishes synthetic TaggedImage messages to object_detection/tagged_image
 at 1 Hz to simulate infrequent object detection payloads.
 """
 
-import rclpy
-from rclpy.node import Node
-import numpy as np
 import cv2
+import numpy as np
+import rclpy
 from geometry_msgs.msg import Point32, Quaternion
+from rclpy.node import Node
 from sensor_msgs.msg import CompressedImage
-from hawkeye_msgs.msg import TaggedImage
 
+from hawkeye_msgs.msg import TaggedImage
 
 # Cycle through a few mock detections so the data is visually distinct
 _MOCK_DETECTIONS = [

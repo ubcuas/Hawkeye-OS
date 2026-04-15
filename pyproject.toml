@@ -1,0 +1,29 @@
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+exclude = [
+    ".git",
+    "build",
+    "install",
+    "log",
+    "__pycache__",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = [
+    "E501",  # line length (many ROS/docstrings; use formatter or wrap ad hoc)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "drone_control",
+    "hawkeye_msgs",
+    "imaging_realsense",
+    "object_detection",
+    "orchestrator",
+    "streaming",
+]
+
+[tool.ruff.format]
+quote-style = "double"

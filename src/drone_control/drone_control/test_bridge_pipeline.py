@@ -14,10 +14,9 @@ from typing import List, Optional, Tuple
 import cv2
 import numpy as np
 import rclpy
-from rclpy.duration import Duration
 from geometry_msgs.msg import Point32, PoseStamped
-from hawkeye_msgs.msg import TaggedImage
 from mavros_msgs.msg import State
+from rclpy.duration import Duration
 from rclpy.node import Node
 from rclpy.qos import (
     DurabilityPolicy,
@@ -28,6 +27,8 @@ from rclpy.qos import (
 )
 from sensor_msgs.msg import CameraInfo, CompressedImage
 from std_msgs.msg import Bool
+
+from hawkeye_msgs.msg import TaggedImage
 
 _LOG_RULE = "=================================================="
 

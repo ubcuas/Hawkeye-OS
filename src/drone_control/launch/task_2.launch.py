@@ -1,12 +1,11 @@
 import os
+
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.launch_description_sources import AnyLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
-
-
 
 
 def generate_launch_description():
@@ -53,8 +52,8 @@ def generate_launch_description():
 
 
     return LaunchDescription([
-        # fcu_url_arg,
-        # mavros_launch,
-        # drone_control_node,
+        fcu_url_arg,
+        mavros_launch,
+        drone_control_node,
         bridge_detection_node,
     ])

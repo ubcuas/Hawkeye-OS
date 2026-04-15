@@ -9,12 +9,12 @@ Two servers:
 
 import asyncio
 import json
-import websockets
-from websockets.server import serve
 from pathlib import Path
-from aiortc import RTCPeerConnection, RTCSessionDescription
+
 import cv2
-import numpy as np
+import websockets
+from aiortc import RTCPeerConnection, RTCSessionDescription
+from websockets.server import serve
 
 
 class MockGCOM:
@@ -58,7 +58,7 @@ class MockGCOM:
                         print(f"[WS] Received: {data}")
                         
                 except json.JSONDecodeError:
-                    print(f"[WS] Invalid JSON")
+                    print("[WS] Invalid JSON")
                     
         except websockets.exceptions.ConnectionClosed:
             print(f"[WS] Orchestrator disconnected: {client_id}")
@@ -74,7 +74,7 @@ class MockGCOM:
         print(f"[SIG] Orchestrator connected: {client_id}")
         
         try:
-            print(f"[SIG] Waiting for offer from orchestrator...")
+            print("[SIG] Waiting for offer from orchestrator...")
 
             
             # Wait for answer
@@ -83,11 +83,11 @@ class MockGCOM:
                     data = json.loads(message)
                     
                     if data.get('type') == 'offer':
-                        print(f"[SIG] Received offer from orchestrator")
+                        print("[SIG] Received offer from orchestrator")
                         await self.handle_webrtc_offer(websocket, data)
                         
                 except json.JSONDecodeError:
-                    print(f"[SIG] Invalid JSON")
+                    print("[SIG] Invalid JSON")
                     
         except websockets.exceptions.ConnectionClosed:
             print(f"[SIG] Orchestrator disconnected: {client_id}")
@@ -114,7 +114,7 @@ class MockGCOM:
             print(f"[RTC] !!! TRACK RECEIVED: {track.kind} track !!!")
             
             if track.kind == "video":
-                print(f"[RTC] Starting video frame receiver...")
+                print("[RTC] Starting video frame receiver...")
                 asyncio.ensure_future(self.receive_video_frames(track))
         
         # Set remote description (the offer)
@@ -206,10 +206,10 @@ class MockGCOM:
         print("\n" + "="*60)
         print("Test sequence complete!")
         print("="*60)
-        print(f"\n[RESULTS]")
+        print("\n[RESULTS]")
         print(f"  Total frames received: {self.frame_count}")
         print(f"  Frames saved to: {self.stream_dir.absolute()}")
-        print(f"\nPress Ctrl+C to stop the server")
+        print("\nPress Ctrl+C to stop the server")
 
     async def broadcast_ws(self, message):
         """Send message to all WebSocket clients"""

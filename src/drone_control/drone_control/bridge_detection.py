@@ -1,14 +1,13 @@
 import cv2
 import numpy as np
 import pyrealsense2 as rs
-
 import rclpy
-from rclpy.node import Node
-from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 from geometry_msgs.msg import PoseStamped
+from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
 from std_msgs.msg import Bool
-from hawkeye_msgs.msg import TaggedImage
 
+from hawkeye_msgs.msg import TaggedImage
 
 # Fixed camera intrinsics (Brown-Conrady / plumb_bob model).
 # Values from CameraInfo K/d for camera_color_optical_frame (1280x720).
