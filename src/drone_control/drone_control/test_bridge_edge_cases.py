@@ -20,7 +20,7 @@ from rclpy.qos import (
     QoSProfile,
     ReliabilityPolicy,
 )
-from sensor_msgs.msg import CameraInfo, CompressedImage, NavSatFix
+from sensor_msgs.msg import CameraInfo, CompressedImage
 from std_msgs.msg import Bool
 
 _LOG_RULE = "=================================================="
@@ -74,7 +74,6 @@ def _tagged_center(
     msg.depth_data = CompressedImage()
     msg.depth_data.format = "png"
     msg.depth_data.data = enc_depth
-    msg.gps_data = NavSatFix()
     msg.bounding_box = bbox
     msg.confidence_level = float(confidence)
     return msg
