@@ -139,7 +139,7 @@ class Orchestrator(Node):
             self.get_logger().info('PROCESS: Waiting for image from queue...')
             img_msg = await self.image_queue.get()
             self.get_logger().info('PROCESS: Got image')
-            # TODO: Add image processing logic here
+            await self.handle_request(img_msg)
 
     async def handle_request(self, msg):
         """Logic Router"""

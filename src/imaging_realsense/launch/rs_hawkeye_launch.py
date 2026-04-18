@@ -36,6 +36,15 @@ def generate_launch_description():
         output='screen',
     )
 
+
+    orchestrator = Node(
+        package='orchestrator',
+        executable='orchestrator',
+        name='orchestrator',
+        output='screen',
+        emulate_tty=True,
+    )
+
     streaming = Node(
         package='streaming',
         executable='streaming',
@@ -52,6 +61,7 @@ def generate_launch_description():
     
     return LaunchDescription([
         # realsense_launch,
+        orchestrator,
         image_processor,
         object_detection, 
         streaming,
