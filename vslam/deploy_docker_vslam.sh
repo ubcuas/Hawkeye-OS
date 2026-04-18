@@ -8,7 +8,7 @@
 
 set -e
 
-source /home/uas-jc/Hawkeye-OS/vslam/print_color.sh
+source ~/Hawkeye-OS/vslam/print_color.sh
 
 # Default image name
 DEPLOY_IMAGE_NAME="${1:-vslam_realsense_deploy:latest}"
