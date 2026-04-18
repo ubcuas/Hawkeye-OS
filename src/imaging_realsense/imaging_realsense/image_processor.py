@@ -9,16 +9,14 @@ from rclpy.node import Node
 from rclpy.qos import QoSPresetProfiles
 from geometry_msgs.msg import Quaternion
 from sensor_msgs.msg import CompressedImage, Image, Imu
-from sensor_msgs.msg import NavSatFix
 from hawkeye_msgs.msg import TaggedImage
 
 """
 ImageProcessor node
 
-Subscribes to compressed color and depth image topics published by the
-RealSense camera, synchronizes them by timestamp using
-ApproximateTimeSynchronizer, and re-publishes them together as a single
-TaggedImage message for downstream consumers (e.g. object_detection).
+Subscribes to compressed color, depth, and MAVROS IMU; synchronizes all three
+by approximate timestamp (ApproximateTimeSynchronizer) and publishes a single
+TaggedImage for downstream consumers (e.g. object_detection).
 """
 # topic for connected camera
 COLOR_TOPIC = "/camera/camera/color/image_raw/compressed"
@@ -27,8 +25,6 @@ DEPTH_TOPIC = "/camera/camera/aligned_depth_to_color/image_raw"
 # topics for ros2 bag
 # COLOR_TOPIC = "color/image_raw/compressed"
 # DEPTH_TOPIC = "/depth/image_rect_raw/compressed"
-
-GPS_TOPIC   = "/gps/fix"
 
 OUTPUT_TOPIC = "/image_processor/tagged_image"
 
@@ -49,42 +45,23 @@ class ImageProcessor(Node):
 
         sensor_qos = QoSPresetProfiles.SENSOR_DATA.value
 
-        # Cache for optional metadata
-        self.latest_gps = None
-        self.latest_yaw_deg = None  # None → publish yaw_deg as NaN on TaggedImage
-        self.latest_yaw_stamp_sec = None  # from Imu; for future synchronization
-        self.latest_imu_orientation = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
-
         # Frame counter for throttling
         self._frame_count = 0
 
-        # message_filters subscribers for camera streams
         self.color_sub = message_filters.Subscriber(
             self, CompressedImage, COLOR_TOPIC, qos_profile=sensor_qos
         )
         self.depth_sub = message_filters.Subscriber(
             self, Image, DEPTH_TOPIC, qos_profile=sensor_qos
         )
-
-        # Optional metadata subscriptions (regular, non-synchronized)
-
-        self.mavros_imu_subscription = self.create_subscription(
-            Imu,
-            MAVROS_IMU_TOPIC,
-            self.mavros_imu_callback,
-            qos_profile=sensor_qos,
+        self.imu_sub = message_filters.Subscriber(
+            self, Imu, MAVROS_IMU_TOPIC, qos_profile=sensor_qos
         )
 
-        self.gps_subscription = self.create_subscription(
-            NavSatFix,
-            GPS_TOPIC,
-            self.gps_callback,
-            10,
-        )
-
-        # Synchronize color + depth frames by approximate timestamp
+        # ApproximateTimeSynchronizer requires message_filters.Subscriber (not
+        # rclpy create_subscription); matches one IMU sample to each image pair.
         self.sync = message_filters.ApproximateTimeSynchronizer(
-            [self.color_sub, self.depth_sub],
+            [self.color_sub, self.depth_sub, self.imu_sub],
             queue_size=SYNC_QUEUE_SIZE,
             slop=SYNC_SLOP,
         )
@@ -104,8 +81,8 @@ class ImageProcessor(Node):
         self.get_logger().info(f'Sync slop: {SYNC_SLOP}s')
         self.get_logger().info(f'Subscribed to MAVROS IMU: {MAVROS_IMU_TOPIC}')
 
-    def synchronized_callback(self, color_msg: CompressedImage, depth_msg: Image):
-        """Called when a matching color+depth pair arrives within the slop window."""
+    def synchronized_callback(self, color_msg: CompressedImage, depth_msg: Image, imu_msg: Imu):
+        """Called when color, depth, and IMU match within the slop window."""
         self._frame_count += 1
 
         if self._frame_count % PUBLISH_EVERY_N != 0:
@@ -132,25 +109,15 @@ class ImageProcessor(Node):
         tagged.image_data = color_msg
         tagged.depth_data = depth_compressed
 
-        if self.latest_gps is not None:
-            tagged.gps_data = self.latest_gps
-
-        tagged.imu_orientation = self.latest_imu_orientation
-        if self.latest_yaw_deg is not None:
-            tagged.yaw_deg = float(self.latest_yaw_deg)
+        yaw_deg, _stamp_imu, orientation = self.imu_calculation(imu_msg)
+        tagged.imu_orientation = orientation
+        if yaw_deg is not None:
+            tagged.yaw_deg = float(yaw_deg)
         else:
             tagged.yaw_deg = float("nan")
 
         self.tagged_image_pub.publish(tagged)
         self.get_logger().debug('Published TaggedImage')
-
-    def gps_callback(self, msg: NavSatFix):
-        """Cache latest GPS data."""
-        self.latest_gps = msg
-        self.get_logger().debug(
-            f'GPS updated: ({msg.latitude:.6f}, {msg.longitude:.6f}, {msg.altitude:.2f}m)',
-            throttle_duration_sec=1.0,
-        )
 
     @staticmethod
     def imu_calculation(msg: Imu):
@@ -181,14 +148,6 @@ class ImageProcessor(Node):
 
         yaw_deg = math.degrees(yaw_rad) % 360.0
         return yaw_deg, stamp_sec, q_out
-
-
-    def mavros_imu_callback(self, msg: Imu):
-        """Cache latest MAVROS IMU and derive yaw + quaternion."""
-        yaw_deg, stamp_sec, orientation = self.imu_calculation(msg)
-        self.latest_yaw_stamp_sec = stamp_sec
-        self.latest_yaw_deg = yaw_deg
-        self.latest_imu_orientation = orientation
 
 
 def main(args=None):
