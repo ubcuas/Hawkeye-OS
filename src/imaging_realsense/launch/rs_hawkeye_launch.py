@@ -61,8 +61,8 @@ def generate_launch_description():
     
     return LaunchDescription([
         # realsense_launch,
-        orchestrator,
+        # orchestrator,
         image_processor,
         object_detection, 
-        streaming,
+        # streaming,
     ])

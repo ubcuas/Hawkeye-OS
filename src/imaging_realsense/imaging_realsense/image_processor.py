@@ -57,11 +57,13 @@ class ImageProcessor(Node):
         self.imu_sub = message_filters.Subscriber(
             self, Imu, MAVROS_IMU_TOPIC, qos_profile=sensor_qos
         )
+        
+        # temp removed imu sub by david
 
         # ApproximateTimeSynchronizer requires message_filters.Subscriber (not
         # rclpy create_subscription); matches one IMU sample to each image pair.
         self.sync = message_filters.ApproximateTimeSynchronizer(
-            [self.color_sub, self.depth_sub, self.imu_sub],
+            [self.color_sub, self.depth_sub],
             queue_size=SYNC_QUEUE_SIZE,
             slop=SYNC_SLOP,
         )
@@ -81,7 +83,7 @@ class ImageProcessor(Node):
         self.get_logger().info(f'Sync slop: {SYNC_SLOP}s')
         self.get_logger().info(f'Subscribed to MAVROS IMU: {MAVROS_IMU_TOPIC}')
 
-    def synchronized_callback(self, color_msg: CompressedImage, depth_msg: Image, imu_msg: Imu):
+    def synchronized_callback(self, color_msg: CompressedImage, depth_msg: Image):
         """Called when color, depth, and IMU match within the slop window."""
         self._frame_count += 1
 
@@ -109,12 +111,12 @@ class ImageProcessor(Node):
         tagged.image_data = color_msg
         tagged.depth_data = depth_compressed
 
-        yaw_deg, _stamp_imu, orientation = self.imu_calculation(imu_msg)
-        tagged.imu_orientation = orientation
-        if yaw_deg is not None:
-            tagged.yaw_deg = float(yaw_deg)
-        else:
-            tagged.yaw_deg = float("nan")
+        # yaw_deg, _stamp_imu, orientation = self.imu_calculation(imu_msg)
+        # tagged.imu_orientation = orientation
+        # if yaw_deg is not None:
+        #     tagged.yaw_deg = float(yaw_deg)
+        # else:
+        #     tagged.yaw_deg = float("nan")
 
         self.tagged_image_pub.publish(tagged)
         self.get_logger().debug('Published TaggedImage')
