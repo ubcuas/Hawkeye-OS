@@ -9,6 +9,7 @@ from rclpy.node import Node
 from rclpy.qos import QoSPresetProfiles
 from geometry_msgs.msg import Quaternion
 from sensor_msgs.msg import CompressedImage, Image, Imu
+from std_msgs.msg import String
 from hawkeye_msgs.msg import TaggedImage
 
 """
@@ -37,6 +38,8 @@ PUBLISH_EVERY_N = 1
 
 MAVROS_IMU_TOPIC = "/mavros/imu/data"
 
+# orchestrator topic to trigger image capture
+IMAGE_REQUEST_TOPIC = "/orchestrator/image_request"
 
 class ImageProcessor(Node):
 
@@ -57,6 +60,18 @@ class ImageProcessor(Node):
         self.imu_sub = message_filters.Subscriber(
             self, Imu, MAVROS_IMU_TOPIC, qos_profile=sensor_qos
         )
+        
+        # Listen for Orchestrator triggers
+        self.image_request_sub = self.create_subscription(
+            String,
+            IMAGE_REQUEST_TOPIC, # Match the topic used by Orchestrator
+            self.image_request_callback,
+            10
+        )
+        
+        # Keep track of the freshest frames
+        self.latest_color = None
+        self.latest_depth = None
         
         # temp removed imu sub by david
 
@@ -82,14 +97,9 @@ class ImageProcessor(Node):
         self.get_logger().info(f'Publishing TaggedImage to: {OUTPUT_TOPIC}')
         self.get_logger().info(f'Sync slop: {SYNC_SLOP}s')
         self.get_logger().info(f'Subscribed to MAVROS IMU: {MAVROS_IMU_TOPIC}')
-
-    def synchronized_callback(self, color_msg: CompressedImage, depth_msg: Image):
-        """Called when color, depth, and IMU match within the slop window."""
-        self._frame_count += 1
-
-        if self._frame_count % PUBLISH_EVERY_N != 0:
-            return
-
+    
+    def publish_synced_frames(self, color_msg: CompressedImage, depth_msg: Image):
+        """Helper to construct and publish the TaggedImage"""
         # self.get_logger().info(
         #     f'SYNC: Matched pair — color: {color_msg.header.stamp}, '
         #     f'depth: {depth_msg.header.stamp}'
@@ -120,6 +130,30 @@ class ImageProcessor(Node):
 
         self.tagged_image_pub.publish(tagged)
         self.get_logger().debug('Published TaggedImage')
+    
+    def image_request_callback(self, msg: String):
+        """Triggered by Orchestrator's TAKE_PHOTO command"""
+        if msg.data == "TAKE_PHOTO":
+            if self.latest_color is not None and self.latest_depth is not None:
+                self.get_logger().info("TAKE_PHOTO requested! Publishing freshest synced frames.")
+                self.publish_synced_frames(self.latest_color, self.latest_depth)
+            else:
+                self.get_logger().warn("TAKE_PHOTO requested, but no frames have been synced yet!")
+
+    def synchronized_callback(self, color_msg: CompressedImage, depth_msg: Image):
+        """Called when color, depth, and IMU match within the slop window."""
+        self._frame_count += 1
+
+        if self._frame_count % PUBLISH_EVERY_N != 0:
+            return
+        
+        # Store the latest frames for image_request_callback   
+        self.latest_color = color_msg
+        self.latest_depth = depth_msg
+        
+        self.publish_synced_frames(color_msg, depth_msg)
+        
+    
 
     @staticmethod
     def imu_calculation(msg: Imu):
