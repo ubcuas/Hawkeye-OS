@@ -52,6 +52,7 @@ DIST_TOL_M = 0.25
 STEP_EPS = 0.30
 SETPOINT_PERIOD_S = 0.05
 STATUS_LOG_PERIOD_S = 1.0
+LOG_FLAG = True
 DEBUG_FLAG = True
 MIN_Z_M = 0.5
 MAX_Z_M = 10.0
@@ -270,46 +271,77 @@ class ArduPilotNode(Node):
 
     def command_cb(self, msg):
         if not self.have_pose:
-            self.get_logger().warn("Command received but no pose yet. Ignoring.")
-            return
+            if not DEBUG_FLAG:
+                self.get_logger().warn("Command received but no pose yet. Ignoring.")
+                return
+            # In dry-run mode, substitute a zero origin pose and proceed
+            self.get_logger().warn(
+                "[DRY RUN] No pose available - using origin (0, 0, 0) as reference."
+            )
 
         if self.mission_active:
             self.get_logger().warn("Mission already in progress. Skipping new command.")
             return
 
-        if self.current_state.mode != "GUIDED" or not self.current_state.armed:
+        if not DEBUG_FLAG and (
+            self.current_state.mode != "GUIDED" or not self.current_state.armed
+        ):
             self.get_logger().warn("Not armed or not in GUIDED. Ignoring command.")
             return
 
+        # In dry-run mode with no real pose, reference stays as the zero-initialised pose
         self.reference_pose = self.copy_pose(self.current_pose)
         self.target_pose = self.delta_to_target_pose(msg)
         self.set_target_yaw_facing_goal()
         self.mission_active = True
         self.publish_mission_active()
 
+        if DEBUG_FLAG:
+            self.get_logger().info(
+                f"[DRY RUN] Received delta (body frame): "
+                f"dx={msg.pose.position.x:.3f} "
+                f"dy={msg.pose.position.y:.3f} "
+                f"dz={msg.pose.position.z:.3f}"
+            )
+            self.get_logger().info(
+                f"[DRY RUN] Reference pose: "
+                f"({self.reference_pose.pose.position.x:.3f}, "
+                f"{self.reference_pose.pose.position.y:.3f}, "
+                f"{self.reference_pose.pose.position.z:.3f})"
+            )
+
         self.get_logger().info(
             f"Mission started -> final target: "
             f"({self.target_pose.pose.position.x:.3f}, "
             f"{self.target_pose.pose.position.y:.3f}, "
             f"{self.target_pose.pose.position.z:.3f})"
+            + (" [DRY RUN - no setpoints will be published]" if DEBUG_FLAG else "")
         )
 
     def timer_cb(self):
-        if not (
-            self.current_state.connected
-            and self.current_state.armed
-            and self.current_state.mode == "GUIDED"
-            and self.have_pose
-            and self.mission_active
-        ):
-            return
+        if DEBUG_FLAG:
+            # In dry-run mode only require an active mission; FC state is irrelevant
+            if not self.mission_active:
+                return
+        else:
+            if not (
+                self.current_state.connected
+                and self.current_state.armed
+                and self.current_state.mode == "GUIDED"
+                and self.have_pose
+                and self.mission_active
+            ):
+                return
 
         now = self.get_clock().now()
 
-        # Current Position
-        cx = float(self.current_pose.pose.position.x)
-        cy = float(self.current_pose.pose.position.y)
-        cz = float(self.current_pose.pose.position.z)
+        # Current Position (zero origin if no real pose available in dry-run mode)
+        if DEBUG_FLAG and not self.have_pose:
+            cx, cy, cz = 0.0, 0.0, 0.0
+        else:
+            cx = float(self.current_pose.pose.position.x)
+            cy = float(self.current_pose.pose.position.y)
+            cz = float(self.current_pose.pose.position.z)
 
         # Final Position
         fx = float(self.target_pose.pose.position.x)
@@ -320,14 +352,11 @@ class ArduPilotNode(Node):
 
         if abs(dist_to_obj - DESIRED_DIST_M) <= DIST_TOL_M:
             self.get_logger().info(
-                f"Mission terminating at "
+                f"Mission complete at "
                 f"({cx:.2f}, {cy:.2f}, {cz:.2f}) "
-                f"| distance={dist_to_obj:.3f}m at mission termination"
+                f"| distance to object: {dist_to_obj:.3f} m"
             )
-
-            # Cancel mission
             self.cancel_mission()
-
             return
 
         if len(self.step_targets) == 0:
@@ -373,6 +402,41 @@ class ArduPilotNode(Node):
             self.in_dwell = False
             self.dwell_until = self.get_clock().now()
 
+            # In dry-run mode, print the full step plan and exit without publishing
+            if DEBUG_FLAG:
+                self.get_logger().info(
+                    f"[DRY RUN] Config: "
+                    f"STEP_COUNT={STEP_COUNT}, "
+                    f"DWELL_SECONDS={DWELL_SECONDS} s, "
+                    f"DESIRED_DIST_M={DESIRED_DIST_M} m, "
+                    f"DIST_TOL_M={DIST_TOL_M} m, "
+                    f"STEP_EPS={STEP_EPS} m, "
+                    f"MIN_Z_M={MIN_Z_M} m, "
+                    f"MAX_Z_M={MAX_Z_M} m"
+                )
+                self.get_logger().info(
+                    f"[DRY RUN] Stopping {DESIRED_DIST_M:.2f} m from object "
+                    f"(tolerance +/-{DIST_TOL_M:.2f} m) | "
+                    f"total travel: {travel_dist:.3f} m"
+                )
+                self.get_logger().info(
+                    f"[DRY RUN] Step plan ({self.step_count} steps, "
+                    f"step_len={step_len:.3f} m):"
+                )
+                for i, s in enumerate(self.step_targets):
+                    self.get_logger().info(
+                        f"[DRY RUN]   Step {i + 1}/{self.step_count}: "
+                        f"({s.pose.position.x:.3f}, "
+                        f"{s.pose.position.y:.3f}, "
+                        f"{s.pose.position.z:.3f})"
+                    )
+                self.get_logger().info(
+                    f"[DRY RUN] Final target (object): "
+                    f"({fx:.3f}, {fy:.3f}, {fz:.3f})"
+                )
+                self.cancel_mission()
+                return
+
         # Clamp step_index
         if self.step_index < 0:
             self.step_index = 0
@@ -384,8 +448,9 @@ class ArduPilotNode(Node):
         active.header.stamp = now.to_msg()
         active.header.frame_id = self.current_pose.header.frame_id
 
-        # Publish setpoint
-        self.local_pos_pub.publish(active)
+        # Publish setpoint (skipped in dry-run mode)
+        if not DEBUG_FLAG:
+            self.local_pos_pub.publish(active)
 
         tx = float(active.pose.position.x)
         ty = float(active.pose.position.y)
@@ -403,7 +468,8 @@ class ArduPilotNode(Node):
         if not self.in_dwell:
             self.in_dwell = True
             self.dwell_until = now + Duration(seconds=self.dwell_seconds)
-            self.get_logger().info(f"Entering dwell at step {self.step_index + 1}")
+            if LOG_FLAG:
+                self.get_logger().info(f"Entering dwell at step {self.step_index + 1}")
             return
 
         if now < self.dwell_until:
@@ -413,9 +479,10 @@ class ArduPilotNode(Node):
 
         if self.step_index < len(self.step_targets) - 1:
             self.step_index += 1
-            self.get_logger().info(
-                f"Advancing to step {self.step_index + 1}/{len(self.step_targets)}"
-            )
+            if LOG_FLAG:
+                self.get_logger().info(
+                    f"Advancing to step {self.step_index + 1}/{len(self.step_targets)}"
+                )
             return
 
         return
@@ -539,7 +606,7 @@ def main():
             time.sleep(STATUS_LOG_PERIOD_S)
 
         while rclpy.ok():
-            if DEBUG_FLAG:
+            if LOG_FLAG:
                 node.get_logger().info(
                     f"STATUS: {node.current_state.mode} | "
                     f"ARMED: {node.current_state.armed} | "
