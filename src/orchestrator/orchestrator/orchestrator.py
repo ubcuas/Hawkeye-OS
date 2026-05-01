@@ -52,6 +52,10 @@ class Orchestrator(Node):
         self.mqtt_client.on_connect = self.on_mqtt_connect
         self.mqtt_client.on_message = self.on_mqtt_message
         
+        # Add TLS configuration before connecting
+        # self.mqtt_client.tls_set(cert_reqs=ssl.CERT_NONE)
+        # self.mqtt_client.tls_insecure_set(True)
+        
         try:
             self.mqtt_client.connect(MQTT_BROKER, 1883, 60)
             self.mqtt_client.loop_start() # Runs network in a background thread (non-blocking)
