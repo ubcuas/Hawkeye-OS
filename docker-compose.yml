@@ -38,7 +38,8 @@ services:
       - LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/lib/aarch64-linux-gnu:${LD_LIBRARY_PATH}
 
       # Orchestrator configuration
-      - WEBRTC_SIGNALING_URL=https://ram-standard-pc-i440fx-piix-1996.tail11b292.ts.net/
+      #- WEBRTC_SIGNALING_URL=https://ram-standard-pc-i440fx-piix-1996.tail11b292.ts.net/
+      - WEBRTC_SIGNALING_URL=https://rams-mac-mini.tail11b292.ts.net/
 
       # Topics
       - OBJECT_DETECTION_TOPIC=color/image_raw/compressed
