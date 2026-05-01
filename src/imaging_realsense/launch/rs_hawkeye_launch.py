@@ -63,6 +63,6 @@ def generate_launch_description():
         #realsense_launch,
         orchestrator,
         image_processor,
-        # object_detection, 
+        object_detection, 
         streaming,
     ])
