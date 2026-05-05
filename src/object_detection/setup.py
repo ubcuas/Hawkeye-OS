@@ -22,7 +22,7 @@ setup(
         'torchvision==0.25.0',
         # Image / CV
         'opencv-python==4.13.0.92',
-        'pillow==12.1.1',
+        'pillow==12.2.0',
         # Numerics / science
         'numpy==1.26.4',
         'scipy==1.15.3',
@@ -32,7 +32,7 @@ setup(
         # Data
         'polars==1.38.1',
         # Networking / HTTP
-        'requests==2.32.5',
+        'requests==2.33.0',
         'urllib3==2.6.3',
         'certifi==2026.1.4',
         'charset-normalizer==3.4.4',
