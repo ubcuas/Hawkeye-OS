@@ -88,13 +88,13 @@ class StreamingNode(Node):
         )
 
         # Subscribe to manual capture requests from the orchestrator
-        import os
-        self.capture_request_subscription = self.create_subscription(
-            String,
-            os.getenv("IMAGE_REQUEST_TOPIC", "image_request"),
-            self._on_capture_request,
-            10,
-        )
+        # import os
+        # self.capture_request_subscription = self.create_subscription(
+        #     String,
+        #     os.getenv("IMAGE_REQUEST_TOPIC", "image_request"),
+        #     self._on_capture_request,
+        #     10,
+        # )
 
         # Register Socket.IO event handlers
         self.signaling_handler = SignalingHandler(
@@ -120,7 +120,7 @@ class StreamingNode(Node):
         if self.video_track and msg.image_data.data:
             self.video_track.put_image(msg.image_data)
 
-    def _on_capture_request(self, msg: String):
+    def _on_capture_request(self):
         """Send the latest cached TaggedImage when a manual capture is requested."""
         if self.latest_tagged_image_msg is None:
             self.get_logger().warn("Capture requested but no tagged image cached yet.")
@@ -273,10 +273,14 @@ class StreamingNode(Node):
                 try:
                     payload = json.loads(message)
                     if payload.get("action") == "TAKE_PHOTO":
-                        self.get_logger().info("TAKE_PHOTO command received via data channel")
-                        self._on_capture_request(None)
+                        self.get_logger().info(
+                            "TAKE_PHOTO command received via data channel"
+                        )
+                        self._on_capture_request()
                 except Exception as e:
-                    self.get_logger().error(f"Failed to handle data channel message: {e}")
+                    self.get_logger().error(
+                        f"Failed to handle data channel message: {e}"
+                    )
 
             # Create offer
             offer = await pc.createOffer()
