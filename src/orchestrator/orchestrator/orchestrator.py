@@ -33,6 +33,9 @@ class Orchestrator(Node):
         # Load from environment variables
         self.object_detection_topic = object_detection_topic or os.getenv('OBJECT_DETECTION_TOPIC')
         self.image_request_topic = image_request_topic or os.getenv('IMAGE_REQUEST_TOPIC')
+        if not self.object_detection_topic or not self.image_request_topic:
+            self.get_logger().error("Environment variables OBJECT_DETECTION_TOPIC and IMAGE_REQUEST_TOPIC must be set")
+            raise ValueError("Missing required environment variables")
 
         self.loop = loop
 
