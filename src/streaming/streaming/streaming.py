@@ -270,7 +270,13 @@ class StreamingNode(Node):
 
             @self.data_channel.on("message")
             def on_message(message):
-                self.get_logger().info(f"Received message on data channel: {message}")
+                try:
+                    payload = json.loads(message)
+                    if payload.get("action") == "TAKE_PHOTO":
+                        self.get_logger().info("TAKE_PHOTO command received via data channel")
+                        self._on_capture_request(None)
+                except Exception as e:
+                    self.get_logger().error(f"Failed to handle data channel message: {e}")
 
             # Create offer
             offer = await pc.createOffer()
