@@ -57,6 +57,7 @@ class ROSVideoStreamTrack(VideoStreamTrack):
         Decodes a ROS CompressedImage (JPEG/PNG) and queues it as an RGB numpy
         array for aiortc to send over WebRTC.
         """
+        # self.logger.info(f"Streaming Received CompressedImage: {msg.format}, size={len(msg.data)} bytes")
         try:
             self._received_frame_count += 1
 
