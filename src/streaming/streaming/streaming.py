@@ -3,6 +3,7 @@ import base64
 import json
 import logging
 import math
+import os
 import traceback
 import cv2
 import numpy as np
@@ -83,12 +84,21 @@ class StreamingNode(Node):
         )
 
         # Subscribe to tagged images from object detection
+        processor_tag_topic = os.getenv(
+            "IMAGE_PROCESSOR_TAGGED_TOPIC", "/image_processor/tagged_image"
+        )
+        self.image_processor_tagged_subscription = self.create_subscription(
+            TaggedImage,
+            processor_tag_topic,
+            self._on_image_processor_tagged_cache,
+            10,
+        )
+
         self.tagged_image_subscription = self.create_subscription(
-            TaggedImage, "object_detection/tagged_image", self._route_tagged_image, 10
+            TaggedImage, "object_detection/tagged_image", self._on_object_detection_tagged, 10
         )
 
         # Subscribe to manual capture requests from the orchestrator
-        import os
         self.capture_request_subscription = self.create_subscription(
             String,
             os.getenv("IMAGE_REQUEST_TOPIC", "image_request"),
@@ -105,9 +115,7 @@ class StreamingNode(Node):
         self.get_logger().info("Streaming node initialized")
         self.get_logger().info(f"Signaling server URL: {self.signaling_url}")
         self.get_logger().info("Subscribed to: color/image_raw/compressed (mock)")
-        self.get_logger().info(
-            "Subscribed to: /image_processor/tagged_image (real camera)"
-        )
+        self.get_logger().info(f"Capture cache refreshed from TaggedImage on: {processor_tag_topic}")
         self.get_logger().info("Subscribed to: object_detection/tagged_image")
 
     def _route_image_to_track(self, msg: CompressedImage):
@@ -125,11 +133,18 @@ class StreamingNode(Node):
         if self.latest_tagged_image_msg is None:
             self.get_logger().warn("Capture requested but no tagged image cached yet.")
             return
-        self._route_tagged_image(self.latest_tagged_image_msg)
+        self._send_tagged_image_over_datachannel(self.latest_tagged_image_msg)
 
-    def _route_tagged_image(self, msg: TaggedImage):
-        """Forward tagged image and metadata to GCOM via the data channel"""
+    def _on_image_processor_tagged_cache(self, msg: TaggedImage):
+        """Latest synchronized TaggedImage from image_processor; feeds TAKE_PHOTO / capture."""
         self.latest_tagged_image_msg = msg
+
+    def _on_object_detection_tagged(self, msg: TaggedImage):
+        """OD-annotated stream to GCOM when detections publish; capture cache stays from image_processor."""
+        self._send_tagged_image_over_datachannel(msg)
+
+    def _send_tagged_image_over_datachannel(self, msg: TaggedImage):
+        """Encode TaggedImage metadata + frames and push to GCOM."""
         if not self.data_channel or self.data_channel.readyState != "open":
             return
 
