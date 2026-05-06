@@ -32,7 +32,8 @@ class Orchestrator(Node):
         # Load from environment variables
         self.object_detection_topic = object_detection_topic or os.getenv('OBJECT_DETECTION_TOPIC', '/object_detection/images')
         self.image_request_topic = image_request_topic or os.getenv('IMAGE_REQUEST_TOPIC', '/orchestrator/image_request')
-
+        self.image_request_topic = "/orchestrator/image_request"
+        
         # Thread-safe queues for communication between ROS, MQTT, and timers
         self.request_queue = queue.Queue()
         

@@ -134,6 +134,7 @@ class ImageProcessor(Node):
     def image_request_callback(self, msg: String):
         """Triggered by Orchestrator's TAKE_PHOTO command"""
         if msg.data == "TAKE_PHOTO":
+            self.get_logger().info("TAKE_PHOTO requested!")
             if self.latest_color is not None and self.latest_depth is not None:
                 self.get_logger().info("TAKE_PHOTO requested! Publishing freshest synced frames.")
                 self.publish_synced_frames(self.latest_color, self.latest_depth)
