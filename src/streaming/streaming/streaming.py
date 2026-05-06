@@ -83,13 +83,10 @@ class StreamingNode(Node):
             10,
         )
 
-        # Subscribe to tagged images from object detection
-        processor_tag_topic = os.getenv(
-            "IMAGE_PROCESSOR_TAGGED_TOPIC", "/image_processor/tagged_image"
-        )
+        # Same topic as imaging_realsense image_processor OUTPUT_TOPIC (capture cache)
         self.image_processor_tagged_subscription = self.create_subscription(
             TaggedImage,
-            processor_tag_topic,
+            "/image_processor/tagged_image",
             self._on_image_processor_tagged_cache,
             10,
         )
@@ -115,7 +112,9 @@ class StreamingNode(Node):
         self.get_logger().info("Streaming node initialized")
         self.get_logger().info(f"Signaling server URL: {self.signaling_url}")
         self.get_logger().info("Subscribed to: color/image_raw/compressed (mock)")
-        self.get_logger().info(f"Capture cache refreshed from TaggedImage on: {processor_tag_topic}")
+        self.get_logger().info(
+            "Capture cache refreshed from TaggedImage on: /image_processor/tagged_image"
+        )
         self.get_logger().info("Subscribed to: object_detection/tagged_image")
 
     def _route_image_to_track(self, msg: CompressedImage):
