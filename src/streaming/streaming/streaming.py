@@ -3,6 +3,7 @@ import base64
 import json
 import logging
 import math
+import os
 import traceback
 import cv2
 import numpy as np
@@ -82,19 +83,29 @@ class StreamingNode(Node):
             10,
         )
 
-        # Subscribe to tagged images from object detection
+        # Same topic as imaging_realsense image_processor OUTPUT_TOPIC (capture cache)
+        self.image_processor_tagged_subscription = self.create_subscription(
+            TaggedImage,
+            "/image_processor/tagged_image",
+            self._on_image_processor_tagged_cache,
+            10,
+        )
+
         self.tagged_image_subscription = self.create_subscription(
-            TaggedImage, "object_detection/tagged_image", self._route_tagged_image, 10
+            TaggedImage,
+            "object_detection/tagged_image",
+            self._on_object_detection_tagged,
+            10,
         )
 
         # Subscribe to manual capture requests from the orchestrator
-        import os
-        self.capture_request_subscription = self.create_subscription(
-            String,
-            os.getenv("IMAGE_REQUEST_TOPIC", "image_request"),
-            self._on_capture_request,
-            10,
-        )
+        # import os
+        # self.capture_request_subscription = self.create_subscription(
+        #     String,
+        #     os.getenv("IMAGE_REQUEST_TOPIC", "image_request"),
+        #     self._on_capture_request,
+        #     10,
+        # )
 
         # Register Socket.IO event handlers
         self.signaling_handler = SignalingHandler(
@@ -106,7 +117,7 @@ class StreamingNode(Node):
         self.get_logger().info(f"Signaling server URL: {self.signaling_url}")
         self.get_logger().info("Subscribed to: color/image_raw/compressed (mock)")
         self.get_logger().info(
-            "Subscribed to: /image_processor/tagged_image (real camera)"
+            "Capture cache refreshed from TaggedImage on: /image_processor/tagged_image"
         )
         self.get_logger().info("Subscribed to: object_detection/tagged_image")
 
@@ -120,16 +131,23 @@ class StreamingNode(Node):
         if self.video_track and msg.image_data.data:
             self.video_track.put_image(msg.image_data)
 
-    def _on_capture_request(self, msg: String):
+    def _on_capture_request(self):
         """Send the latest cached TaggedImage when a manual capture is requested."""
         if self.latest_tagged_image_msg is None:
             self.get_logger().warn("Capture requested but no tagged image cached yet.")
             return
-        self._route_tagged_image(self.latest_tagged_image_msg)
+        self._send_tagged_image_over_datachannel(self.latest_tagged_image_msg)
 
-    def _route_tagged_image(self, msg: TaggedImage):
-        """Forward tagged image and metadata to GCOM via the data channel"""
+    def _on_image_processor_tagged_cache(self, msg: TaggedImage):
+        """Latest synchronized TaggedImage from image_processor; feeds TAKE_PHOTO / capture."""
         self.latest_tagged_image_msg = msg
+
+    def _on_object_detection_tagged(self, msg: TaggedImage):
+        """OD-annotated stream to GCOM when detections publish; capture cache stays from image_processor."""
+        self._send_tagged_image_over_datachannel(msg)
+
+    def _send_tagged_image_over_datachannel(self, msg: TaggedImage):
+        """Encode TaggedImage metadata + frames and push to GCOM."""
         if not self.data_channel or self.data_channel.readyState != "open":
             return
 
@@ -270,7 +288,17 @@ class StreamingNode(Node):
 
             @self.data_channel.on("message")
             def on_message(message):
-                self.get_logger().info(f"Received message on data channel: {message}")
+                try:
+                    payload = json.loads(message)
+                    if payload.get("action") == "TAKE_PHOTO":
+                        self.get_logger().info(
+                            "TAKE_PHOTO command received via data channel"
+                        )
+                        self._on_capture_request()
+                except Exception as e:
+                    self.get_logger().error(
+                        f"Failed to handle data channel message: {e}"
+                    )
 
             # Create offer
             offer = await pc.createOffer()
