@@ -16,3 +16,5 @@ build/
 .vscode/settings.json
 
 .claude
+
+hawkeye_venv/

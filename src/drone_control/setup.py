@@ -25,13 +25,14 @@ setup(
     entry_points={
         'console_scripts': [
             'drone_control = drone_control.drone_control:main',
-            'test_servo = drone_control.test_servo:test_servo',
-            'test_nav = drone_control.test_nav:main',
-            'bridge_detection = drone_control.bridge_detection:main',
-            'test_tagged_image_pub = drone_control.test_tagged_image_pub:main',
-            'test_bridge_pipeline = drone_control.test_bridge_pipeline:main',
-            'test_bridge_edge_cases = drone_control.test_bridge_edge_cases:main',
-            'test_drone_control_edges = drone_control.test_drone_control_edges:main',
+            'vslam_control = drone_control.vslam_control:main',
+            # 'test_servo = drone_control.test_servo:test_servo',
+            # 'test_nav = drone_control.test_nav:main',
+            # 'bridge_detection = drone_control.bridge_detection:main',
+            # 'test_tagged_image_pub = drone_control.test_tagged_image_pub:main',
+            # 'test_bridge_pipeline = drone_control.test_bridge_pipeline:main',
+            # 'test_bridge_edge_cases = drone_control.test_bridge_edge_cases:main',
+            # 'test_drone_control_edges = drone_control.test_drone_control_edges:main',
         ],
     },
 )

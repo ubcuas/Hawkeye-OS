@@ -1,0 +1,12 @@
+Wires: UART1 connection to cube Telem 2
+Need to configure cube serial2 to correct baud rate & protocol
+
+To build:
+python3 -m colcon build --symlink-install
+
+bash deploy_docker_vslam
+temp disable the laser as it's messing with VSLAM suddenly
+
+ros2 run mavros mavros_node --ros-args -p fcu_url:=serial:///dev/ttyTHS1:921600
+ros2 run drone_control vslam_control
+
