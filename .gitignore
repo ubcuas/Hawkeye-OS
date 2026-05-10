@@ -17,4 +17,8 @@ build/
 
 .claude
 
-hawkeye_venv/
+hawkeye_env/
+
+mobileclip2_b.ts
+src/drone_control/drone_control/__pycache__/__init__.cpython-310.pyc
+datalog/target_world_coords_home.csv

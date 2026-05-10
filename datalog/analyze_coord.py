@@ -7,7 +7,7 @@ from matplotlib.ticker import MultipleLocator
 
 def main():
     # Adjust this path if you run the script from a different directory
-    csv_file = "/home/uas-jc/Hawkeye-OS/datalog/target_world_coords.csv"
+    csv_file = os.path.expanduser("~/Hawkeye-OS/datalog/target_world_coords.csv")
     
     if not os.path.exists(csv_file):
         print(f"Error: Could not find '{csv_file}'. Has the node recorded any data yet?")

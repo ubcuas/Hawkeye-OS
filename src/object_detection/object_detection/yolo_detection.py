@@ -19,13 +19,14 @@ from ultralytics import YOLOE
 
 # --- Configuration ---
 MODEL_PATH = "/ros2_ws/src/object_detection/yoloe-26x-seg.pt"
+# MODEL_PATH = os.path.expanduser("~/Hawkeye_OS/src/object_detection/yoloe-26x-seg.pt")
 CONF_THRESH = 0.20
 IMGSZ = 960
 USE_CUDA = True
 VISUALIZE = False
 
 class YoloDetector:
-    def __init__(self, node, model_path="/ros2_ws/src/object_detection/yoloe-26x-seg.pt", 
+    def __init__(self, node, model_path=MODEL_PATH, 
                  conf_thresh=0.25, imgsz=IMGSZ, use_cuda=True, visualize=VISUALIZE, logger=None):
         self.node = node
         self.model_path = model_path
@@ -45,7 +46,7 @@ class YoloDetector:
             self.device = "cpu"
             
         self.node.get_logger().info(f"Loading YOLOE model from {self.model_path} on {self.device}...")
-        self.model = YOLOE(self.model_path)
+        self.model = YOLOE(self.model_path, task="segment")
         self.model.set_classes(self.classes)
         self.node.get_logger().info("YOLOE model loaded ✅")
 

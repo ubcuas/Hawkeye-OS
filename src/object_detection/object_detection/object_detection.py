@@ -35,6 +35,7 @@ CAMERA_INFO_TOPIC = "/camera/camera/aligned_depth_to_color/camera_info"
 ODOM_TOPIC = "/visual_slam/tracking/odometry"
 
 COORD_LOGGING_PATH = "/ros2_ws/datalog/target_world_coords.csv"
+# COORD_LOGGING_PATH = os.path.expanduser("~/Hawkeye-OS/datalog/target_world_coords.csv")
 
 class ObjectDetection(Node):
     def __init__(self):
