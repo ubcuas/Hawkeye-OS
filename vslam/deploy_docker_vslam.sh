@@ -67,9 +67,9 @@ if [[ $PLATFORM == "aarch64" ]]; then
     fi
 fi
 # Device access for I2C (IMU) and RealSense
-DOCKER_ARGS+=("--device /dev/i2c-7:/dev/i2c-7")
-DOCKER_ARGS+=("--group-add $(stat -c %g /dev/i2c-7)")
-DOCKER_ARGS+=("-v /dev:/dev")
+# DOCKER_ARGS+=("--device /dev/i2c-7:/dev/i2c-7")
+# DOCKER_ARGS+=("--group-add $(stat -c %g /dev/i2c-7)")
+# DOCKER_ARGS+=("-v /dev:/dev")
 
 # Mount to local
 DOCKER_ARGS+=("-v ${ISAAC_ROS_WS}/src/isaac_ros_visual_slam/isaac_ros_visual_slam/launch/isaac_ros_visual_slam_realsense.launch.py:/workspaces/isaac_ros-dev/install/share/isaac_ros_visual_slam/launch/isaac_ros_visual_slam_realsense.launch.py")
