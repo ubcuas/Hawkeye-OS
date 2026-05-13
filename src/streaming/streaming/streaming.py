@@ -38,6 +38,8 @@ Handles WebRTC-based video streaming to GCOM via a signaling server.
 Manages peer connection establishment and data channel communication.
 """
 
+DEPTH_PATCH_RADIUS = 3
+
 
 class StreamingNode(Node):
     def __init__(self, signaling_url: str):
@@ -137,6 +139,81 @@ class StreamingNode(Node):
             self.get_logger().warn("Capture requested but no tagged image cached yet.")
             return
         self._send_tagged_image_over_datachannel(self.latest_tagged_image_msg)
+
+    def _on_depth_sample_request(self, u_norm: float, v_norm: float):
+        """Sample depth (meters) around a normalized click on the latest cached frame and reply."""
+        if self.latest_tagged_image_msg is None:
+            self.get_logger().warn("Depth sample requested but no tagged image cached yet.")
+            self._send_depth_result(u_norm, v_norm, None)
+            return
+
+        depth_msg = self.latest_tagged_image_msg.depth_data
+        if not depth_msg.data:
+            self.get_logger().warn("Depth sample requested but cached depth data is empty.")
+            self._send_depth_result(u_norm, v_norm, None)
+            return
+
+        depth_img_m = self._decode_depth_image_to_meters(depth_msg)
+        if depth_img_m is None:
+            self._send_depth_result(u_norm, v_norm, None)
+            return
+
+        h, w = depth_img_m.shape[:2]
+        u = int(round(u_norm * (w - 1)))
+        v = int(round(v_norm * (h - 1)))
+
+        depth_m = self._sample_depth_median(depth_img_m, u, v, DEPTH_PATCH_RADIUS)
+        self._send_depth_result(u_norm, v_norm, depth_m)
+
+    def _send_depth_result(self, u_norm: float, v_norm: float, depth_m):
+        if not self.data_channel or self.data_channel.readyState != "open":
+            return
+        payload = json.dumps(
+            {
+                "action": "DEPTH_RESULT",
+                "u": u_norm,
+                "v": v_norm,
+                "depth_m": None if depth_m is None else float(depth_m),
+            }
+        )
+        self.data_channel.send(payload)
+
+    def _decode_depth_image_to_meters(self, depth_msg: CompressedImage):
+        np_arr = np.frombuffer(depth_msg.data, np.uint8)
+        depth_img = cv2.imdecode(np_arr, cv2.IMREAD_UNCHANGED)
+
+        if depth_img is None:
+            self.get_logger().error(
+                f"Failed to decode depth image, format='{depth_msg.format}'"
+            )
+            return None
+
+        if depth_img.dtype == np.uint16:
+            return depth_img.astype(np.float32) / 1000.0
+        if depth_img.dtype == np.float32:
+            return depth_img
+
+        self.get_logger().error(f"Unsupported depth dtype: {depth_img.dtype}")
+        return None
+
+    def _sample_depth_median(self, depth_img_m, u: int, v: int, radius: int):
+        h, w = depth_img_m.shape[:2]
+        if w == 0 or h == 0:
+            return None
+
+        u = max(0, min(w - 1, u))
+        v = max(0, min(h - 1, v))
+
+        u0 = max(0, u - radius)
+        u1 = min(w, u + radius + 1)
+        v0 = max(0, v - radius)
+        v1 = min(h, v + radius + 1)
+
+        patch = depth_img_m[v0:v1, u0:u1]
+        valid = patch[np.isfinite(patch) & (patch > 0.0)]
+        if valid.size == 0:
+            return None
+        return float(np.median(valid))
 
     def _on_image_processor_tagged_cache(self, msg: TaggedImage):
         """Latest synchronized TaggedImage from image_processor; feeds TAKE_PHOTO / capture."""
@@ -290,11 +367,19 @@ class StreamingNode(Node):
             def on_message(message):
                 try:
                     payload = json.loads(message)
-                    if payload.get("action") == "TAKE_PHOTO":
+                    action = payload.get("action")
+                    if action == "TAKE_PHOTO":
                         self.get_logger().info(
                             "TAKE_PHOTO command received via data channel"
                         )
                         self._on_capture_request()
+                    elif action == "SAMPLE_DEPTH":
+                        u = float(payload.get("u"))
+                        v = float(payload.get("v"))
+                        self.get_logger().info(
+                            f"SAMPLE_DEPTH command received via data channel (u={u:.3f}, v={v:.3f})"
+                        )
+                        self._on_depth_sample_request(u, v)
                 except Exception as e:
                     self.get_logger().error(
                         f"Failed to handle data channel message: {e}"
